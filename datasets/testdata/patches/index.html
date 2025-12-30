@@ -1,0 +1,495 @@
+
+<!doctype html>
+<html><head><meta charset='utf-8'><title>Patch Preview</title>
+<style>body{font-family: monospace; white-space: pre-wrap;}</style>
+</head><body>
+<h2>Patch Previews (first 80 lines each)</h2>
+<h3>buffer_overflow — datasets/testdata/patches/buffer_overflow/42470064.patch</h3><pre>&lt;!DOCTYPE html&gt;
+&lt;html class=&quot;html-devise-layout gl-system&quot; lang=&quot;en&quot;&gt;
+&lt;head prefix=&quot;og: http://ogp.me/ns#&quot;&gt;
+&lt;meta charset=&quot;utf-8&quot;&gt;
+&lt;meta content=&quot;IE=edge&quot; http-equiv=&quot;X-UA-Compatible&quot;&gt;
+&lt;meta content=&quot;width=device-width, initial-scale=1&quot; name=&quot;viewport&quot;&gt;
+&lt;title&gt;Sign in · GitLab&lt;/title&gt;
+&lt;script nonce=&quot;HItX0qflNmjeiofoQ/71ZQ==&quot;&gt;
+//&lt;![CDATA[
+window.gon={};gon.api_version=&quot;v4&quot;;gon.default_avatar_url=&quot;https://foss.heptapod.net/assets/no_avatar-849f9c04a3a0d0cea2424ae97b27447dc64a7dbfae83c036c45b403392f0e8ba.png&quot;;gon.max_file_size=10;gon.asset_host=null;gon.webpack_public_path=&quot;/assets/webpack/&quot;;gon.relative_url_root=&quot;&quot;;gon.user_color_mode=&quot;gl-system&quot;;gon.user_color_scheme=&quot;white&quot;;gon.markdown_surround_selection=null;gon.markdown_automatic_lists=null;gon.markdown_maintain_indentation=null;gon.math_rendering_limits_enabled=true;gon.allow_immediate_namespaces_deletion=true;gon.recaptcha_api_server_url=&quot;https://www.recaptcha.net/recaptcha/api.js&quot;;gon.recaptcha_sitekey=&quot;6LfPFboUAAAAAI9HC7aZRlrxHH0n690EQiOiJAFz&quot;;gon.gitlab_url=&quot;https://foss.heptapod.net&quot;;gon.promo_url=&quot;https://about.gitlab.com&quot;;gon.forum_url=&quot;https://forum.gitlab.com&quot;;gon.docs_url=&quot;https://docs.gitlab.com&quot;;gon.revision=&quot;83d4b4b3cd8f&quot;;gon.feature_category=&quot;system_access&quot;;gon.gitlab_logo=&quot;/assets/gitlab_logo-2957169c8ef64c58616a1ac3f4fc626e8a35ce4eb3ed31bb0d873712f2a041a0.png&quot;;gon.secure=true;gon.sprite_icons=&quot;/assets/icons-62cd41f10569bb5050df02409792752f47c042aa91f8d59f11b48b79e724f90d.svg&quot;;gon.sprite_file_icons=&quot;/assets/file_icons/file_icons-88a95467170997d6a4052c781684c8250847147987090747773c1ee27c513c5f.svg&quot;;gon.illustrations_path=&quot;/images/illustrations.svg&quot;;gon.emoji_sprites_css_path=&quot;/assets/emoji_sprites-bd26211944b9d072037ec97cb138f1a52cd03ef185cd38b8d1fcc963245199a1.css&quot;;gon.emoji_backend_version=4;gon.gridstack_css_path=&quot;/assets/lazy_bundles/gridstack-f42069e5c7b1542688660592b48f2cbd86e26b77030efd195d124dbd8fe64434.css&quot;;gon.test_env=false;gon.disable_animations=null;gon.suggested_label_colors={&quot;#cc338b&quot;:&quot;Magenta-pink&quot;,&quot;#dc143c&quot;:&quot;Crimson&quot;,&quot;#c21e56&quot;:&quot;Rose red&quot;,&quot;#cd5b45&quot;:&quot;Dark coral&quot;,&quot;#ed9121&quot;:&quot;Carrot orange&quot;,&quot;#eee600&quot;:&quot;Titanium yellow&quot;,&quot;#009966&quot;:&quot;Green-cyan&quot;,&quot;#8fbc8f&quot;:&quot;Dark sea green&quot;,&quot;#6699cc&quot;:&quot;Blue-gray&quot;,&quot;#e6e6fa&quot;:&quot;Lavender&quot;,&quot;#9400d3&quot;:&quot;Dark violet&quot;,&quot;#330066&quot;:&quot;Deep violet&quot;,&quot;#36454f&quot;:&quot;Charcoal grey&quot;,&quot;#808080&quot;:&quot;Gray&quot;};gon.first_day_of_week=0;gon.time_display_relative=true;gon.time_display_format=0;gon.ee=false;gon.jh=false;gon.dot_com=false;gon.uf_error_prefix=&quot;UF&quot;;gon.pat_prefix=&quot;&quot;;gon.keyboard_shortcuts_enabled=true;gon.diagramsnet_url=&quot;https://embed.diagrams.net&quot;;gon.features={&quot;uiForOrganizations&quot;:false,&quot;organizationSwitching&quot;:false,&quot;findAndReplace&quot;:false,&quot;removeMonitorMetrics&quot;:true,&quot;workItemViewForIssues&quot;:true,&quot;newProjectCreationForm&quot;:false,&quot;workItemsClientSideBoards&quot;:false,&quot;glqlWorkItems&quot;:false,&quot;glqlAggregation&quot;:false,&quot;glqlTypescript&quot;:false,&quot;whatsNewFeaturedCarousel&quot;:true,&quot;paneledView&quot;:false,&quot;imageLightboxes&quot;:false,&quot;archiveGroup&quot;:false,&quot;projectStudioEnabled&quot;:false};
+//]]&gt;
+&lt;/script&gt;
+
+&lt;script nonce=&quot;HItX0qflNmjeiofoQ/71ZQ==&quot;&gt;
+//&lt;![CDATA[
+const root = document.documentElement;
+if (window.matchMedia(&#x27;(prefers-color-scheme: dark)&#x27;).matches) {
+  root.classList.add(&#x27;gl-dark&#x27;);
+}
+
+window.matchMedia(&#x27;(prefers-color-scheme: dark)&#x27;).addEventListener(&#x27;change&#x27;, (e) =&gt; {
+  if (e.matches) {
+    root.classList.add(&#x27;gl-dark&#x27;);
+  } else {
+    root.classList.remove(&#x27;gl-dark&#x27;);
+  }
+});
+
+//]]&gt;
+&lt;/script&gt;
+
+
+
+
+&lt;meta content=&quot;light dark&quot; name=&quot;color-scheme&quot;&gt;
+&lt;link rel=&quot;stylesheet&quot; href=&quot;/assets/application-8a9f6b466d0b36fa2755d3040da2a3fae715d40a0a0f10b541aa3e9b59e96ccc.css&quot; media=&quot;(prefers-color-scheme: light)&quot; /&gt;
+&lt;link rel=&quot;stylesheet&quot; href=&quot;/assets/application_dark-8030447b34f738da83c7d723089105262c01eb13b5b3d30c4c5a3c41520806d7.css&quot; media=&quot;(prefers-color-scheme: dark)&quot; /&gt;
+&lt;link rel=&quot;stylesheet&quot; href=&quot;/assets/page_bundles/login-7240ec00cf3969b710fe5e8959f8ef8eeff66d635ded28839b1b4256ae8d96a3.css&quot; /&gt;&lt;link rel=&quot;stylesheet&quot; href=&quot;/assets/page_bundles/commit_description-9e7efe20f0cef17d0606edabfad0418e9eb224aaeaa2dae32c817060fa60abcc.css&quot; /&gt;&lt;link rel=&quot;stylesheet&quot; href=&quot;/assets/page_bundles/work_items-9c736722b9bb76f2c57757ed1bae3a5e79456e78cba897d309ea0aab9503330c.css&quot; /&gt;&lt;link rel=&quot;stylesheet&quot; href=&quot;/assets/page_bundles/notes_shared-57a4db43ec755df32d86f7c5cdd49148a3b4135f33e08d3eee766fa405736239.css&quot; /&gt;
+&lt;link rel=&quot;stylesheet&quot; href=&quot;/assets/application_utilities-e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855.css&quot; media=&quot;(prefers-color-scheme: light)&quot; /&gt;
+&lt;link rel=&quot;stylesheet&quot; href=&quot;/assets/application_utilities_dark-e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855.css&quot; media=&quot;(prefers-color-scheme: dark)&quot; /&gt;
+&lt;link rel=&quot;stylesheet&quot; href=&quot;/assets/tailwind-a9fde9b8ef840a75f25766bd8ab8b53262d10d4a4925fa5da3838923cf8e482f.css&quot; /&gt;
+
+
+&lt;link rel=&quot;stylesheet&quot; href=&quot;/assets/fonts-deb7ad1d55ca77c0172d8538d53442af63604ff490c74acc2859db295c125bdb.css&quot; /&gt;
+&lt;link rel=&quot;stylesheet&quot; href=&quot;/assets/highlight/themes/white-be4fdae1a25a255ed59f155dc9b7449697d7552a98dd3965643301056c8f426a.css&quot; media=&quot;(prefers-color-scheme: light)&quot; /&gt;
+&lt;link rel=&quot;stylesheet&quot; href=&quot;/assets/highlight/themes/dark-77ed54f14352adb6ae26be56730f321e0273576f8be6e1f73d1d2ac3ec191a0b.css&quot; media=&quot;(prefers-color-scheme: dark)&quot; /&gt;
+
+&lt;script src=&quot;/assets/webpack/runtime.378ce989.bundle.js&quot; defer=&quot;defer&quot; nonce=&quot;HItX0qflNmjeiofoQ/71ZQ==&quot;&gt;&lt;/script&gt;
+&lt;script src=&quot;/assets/webpack/main.92675346.chunk.js&quot; defer=&quot;defer&quot; nonce=&quot;HItX0qflNmjeiofoQ/71ZQ==&quot;&gt;&lt;/script&gt;
+&lt;script src=&quot;/assets/webpack/tracker.4ac2efa2.chunk.js&quot; defer=&quot;defer&quot; nonce=&quot;HItX0qflNmjeiofoQ/71ZQ==&quot;&gt;&lt;/script&gt;
+&lt;script nonce=&quot;HItX0qflNmjeiofoQ/71ZQ==&quot;&gt;
+//&lt;![CDATA[
+window.snowplowOptions = {&quot;namespace&quot;:&quot;gl&quot;,&quot;hostname&quot;:&quot;foss.heptapod.net:443&quot;,&quot;postPath&quot;:&quot;/-/collect_events&quot;,&quot;forceSecureTracker&quot;:true,&quot;appId&quot;:&quot;gitlab_sm&quot;}
+
+gl = window.gl || {};
+gl.snowplowStandardContext = {&quot;schema&quot;:&quot;iglu:com.gitlab/gitlab_standard/jsonschema/1-1-7&quot;,&quot;data&quot;:{&quot;environment&quot;:&quot;self-managed&quot;,&quot;source&quot;:&quot;gitlab-rails&quot;,&quot;correlation_id&quot;:&quot;01KBYNDT6YRRFJ8F1JXSPR8PNA&quot;,&quot;plan&quot;:&quot;free&quot;,&quot;extra&quot;:{},&quot;user_id&quot;:null,&quot;global_user_id&quot;:null,&quot;user_type&quot;:null,&quot;is_gitlab_team_member&quot;:null,&quot;namespace_id&quot;:null,&quot;ultimate_parent_namespace_id&quot;:null,&quot;project_id&quot;:null,&quot;feature_enabled_by_namespace_ids&quot;:null,&quot;realm&quot;:&quot;self-managed&quot;,&quot;instance_id&quot;:&quot;e74f6ff6-bd1f-40ca-be89-bf0dce8995f5&quot;,&quot;unique_instance_id&quot;:&quot;b408cc0f-351c-57df-be7e-acab913f5d4b&quot;,&quot;host_name&quot;:&quot;foss.heptapod.net&quot;,&quot;instance_version&quot;:&quot;18.5.3&quot;,&quot;context_generated_at&quot;:&quot;2025-12-08T09:42:02.826Z&quot;}}
+gl.snowplowPseudonymizedPageUrl = &quot;https://foss.heptapod.net/users/sign_in&quot;;
+gl.maskedDefaultReferrerUrl = null;
+gl.ga4MeasurementId = &#x27;G-ENFH3X7M5Y&#x27;;
+gl.duoEvents = [];
+gl.onlySendDuoEvents = true;
+
+
+//]]&gt;
+&lt;/script&gt;
+&lt;link rel=&quot;preload&quot; href=&quot;/assets/application_utilities-e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855.css&quot; as=&quot;style&quot; type=&quot;text/css&quot; nonce=&quot;qH+pOqARPa0GZxtKTYSx8w==&quot;&gt;
+&lt;link rel=&quot;preload&quot; href=&quot;/assets/application-8a9f6b466d0b36fa2755d3040da2a3fae715d40a0a0f10b541aa3e9b59e96ccc.css&quot; as=&quot;style&quot; type=&quot;text/css&quot; nonce=&quot;qH+pOqARPa0GZxtKTYSx8w==&quot;&gt;
+&lt;link rel=&quot;preload&quot; href=&quot;/assets/highlight/themes/white-be4fdae1a25a255ed59f155dc9b7449697d7552a98dd3965643301056c8f426a.css&quot; as=&quot;style&quot; type=&quot;text/css&quot; nonce=&quot;qH+pOqARPa0GZxtKTYSx8w==&quot;&gt;
+
+
+
+
+&lt;script src=&quot;/assets/webpack/commons-pages.groups.new-pages.import.gitlab_projects.new-pages.import.manifest.new-pages.projects.n-44c6c18e.40bde5fa.chunk.js&quot; defer=&quot;defer&quot; nonce=&quot;HItX0qflNmjeiofoQ/71ZQ==&quot;&gt;&lt;/script&gt;
+&lt;script src=&quot;/assets/webpack/commons-pages.search.show-super_sidebar.98969176.chunk.js&quot; defer=&quot;defer&quot; nonce=&quot;HItX0qflNmjeiofoQ/71ZQ==&quot;&gt;&lt;/script&gt;
+&lt;script src=&quot;/assets/webpack/super_sidebar.55c9fe98.chunk.js&quot; defer=&quot;defer&quot; nonce=&quot;HItX0qflNmjeiofoQ/71ZQ==&quot;&gt;&lt;/script&gt;
+&lt;script src=&quot;/assets/webpack/commons-pages.admin.sessions-pages.sessions-pages.sessions.new.e521f836.chunk.js&quot; defer=&quot;defer&quot; nonce=&quot;HItX0qflNmjeiofoQ/71ZQ==&quot;&gt;&lt;/script&gt;
+&lt;script src=&quot;/assets/webpack/commons-pages.registrations.new-pages.sessions.new.a0146496.chunk.js&quot; defer=&quot;defer&quot; nonce=&quot;HItX0qflNmjeiofoQ/71ZQ==&quot;&gt;&lt;/script&gt;
+&lt;script src=&quot;/assets/webpack/pages.sessions.new.3ea99af5.chunk.js&quot; defer=&quot;defer&quot; nonce=&quot;HItX0qflNmjeiofoQ/71ZQ==&quot;&gt;&lt;/script&gt;
+
+</pre><h3>buffer_overflow — datasets/testdata/patches/buffer_overflow/42470093.patch</h3><pre>From 2dde6c803a9e50c5bff74095187b0cb2e12eebdd Mon Sep 17 00:00:00 2001
+From: Behdad Esfahbod &lt;behdad@behdad.org&gt;
+Date: Tue, 28 Aug 2018 11:02:00 -0700
+Subject: [PATCH] Explicitly pass reference in hb_auto_t constructor
+
+Fixes clang bots as well as fuzzer issue.
+---
+ src/hb-dsalgs.hh | 9 ++++++++-
+ 1 file changed, 8 insertions(+), 1 deletion(-)
+
+diff --git a/src/hb-dsalgs.hh b/src/hb-dsalgs.hh
+index ec5708eb797..8c910748b9f 100644
+--- a/src/hb-dsalgs.hh
++++ b/src/hb-dsalgs.hh
+@@ -492,7 +492,14 @@ template &lt;typename Type&gt;
+ struct hb_auto_t : Type
+ {
+   hb_auto_t (void) { Type::init (); }
+-  template &lt;typename T1&gt; hb_auto_t (T1 t1) { Type::init (t1); }
++  /* Explicitly allow the following only for pointer and references,
++   * to avoid any accidental copies.
++   *
++   * Apparently if we template for all types, then gcc seems to
++   * capture a reference argument in the type, but clang doesn&#x27;t,
++   * causing unwanted copies and bugs that come with it. */
++  template &lt;typename T1&gt; hb_auto_t (T1 *t1) { Type::init (t1); }
++  template &lt;typename T1&gt; hb_auto_t (T1 &amp;t1) { Type::init (t1); }
+   ~hb_auto_t (void) { Type::fini (); }
+   private: /* Hide */
+   void init (void) {}</pre><h3>buffer_overflow — datasets/testdata/patches/buffer_overflow/42470096.patch</h3><pre>From 2dde6c803a9e50c5bff74095187b0cb2e12eebdd Mon Sep 17 00:00:00 2001
+From: Behdad Esfahbod &lt;behdad@behdad.org&gt;
+Date: Tue, 28 Aug 2018 11:02:00 -0700
+Subject: [PATCH] Explicitly pass reference in hb_auto_t constructor
+
+Fixes clang bots as well as fuzzer issue.
+---
+ src/hb-dsalgs.hh | 9 ++++++++-
+ 1 file changed, 8 insertions(+), 1 deletion(-)
+
+diff --git a/src/hb-dsalgs.hh b/src/hb-dsalgs.hh
+index ec5708eb797..8c910748b9f 100644
+--- a/src/hb-dsalgs.hh
++++ b/src/hb-dsalgs.hh
+@@ -492,7 +492,14 @@ template &lt;typename Type&gt;
+ struct hb_auto_t : Type
+ {
+   hb_auto_t (void) { Type::init (); }
+-  template &lt;typename T1&gt; hb_auto_t (T1 t1) { Type::init (t1); }
++  /* Explicitly allow the following only for pointer and references,
++   * to avoid any accidental copies.
++   *
++   * Apparently if we template for all types, then gcc seems to
++   * capture a reference argument in the type, but clang doesn&#x27;t,
++   * causing unwanted copies and bugs that come with it. */
++  template &lt;typename T1&gt; hb_auto_t (T1 *t1) { Type::init (t1); }
++  template &lt;typename T1&gt; hb_auto_t (T1 &amp;t1) { Type::init (t1); }
+   ~hb_auto_t (void) { Type::fini (); }
+   private: /* Hide */
+   void init (void) {}</pre><h3>out_of_bounds — datasets/testdata/patches/out_of_bounds/42470900.patch</h3><pre>From 9f472ea1501f8deb0109ea61feda6b8a5eec4f6a Mon Sep 17 00:00:00 2001
+From: Peter Wu &lt;peter@lekensteyn.nl&gt;
+Date: Tue, 30 Oct 2018 14:31:39 +0100
+Subject: [PATCH] CMake: fix broken oss-fuzz build due to the -pie option
+
+check_function_exists (as used by FindZLIB.cmake) seems to fail with the
+-pie option as well, do not try to enable it when building for oss-fuzz.
+
+Change-Id: I7d7e0fce1972483a14ac0a91a9f144f22c5ae8a0
+Fixes: v2.9.0rc0-2349-g895ad30b5a (&quot;CMake: Fix -pie linker test&quot;)
+Reviewed-on: https://code.wireshark.org/review/30431
+Petri-Dish: Peter Wu &lt;peter@lekensteyn.nl&gt;
+Tested-by: Petri Dish Buildbot
+Reviewed-by: Peter Wu &lt;peter@lekensteyn.nl&gt;
+---
+ CMakeLists.txt | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 374b3f4d7e4..44bce81e383 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -840,7 +840,7 @@ endif()
+ 
+ include(CheckCLinkerFlag)
+ 
+-if(NOT CMAKE_C_COMPILER_ID MATCHES &quot;MSVC&quot;)
++if(NOT CMAKE_C_COMPILER_ID MATCHES &quot;MSVC&quot; AND NOT OSS_FUZZ)
+ 	#
+ 	# The -pie linker option produces a position-independent executable.
+ 	# Some Linux distributions have this enabled by default in the compiler,</pre><h3>out_of_bounds — datasets/testdata/patches/out_of_bounds/42472805.patch</h3><pre>From b268171278682083d290e01f0df4eba12cc4fc95 Mon Sep 17 00:00:00 2001
+From: Jonathan Hui &lt;jonhui@nestlabs.com&gt;
+Date: Thu, 17 Jan 2019 02:52:37 -0800
+Subject: [PATCH] [coap] change assert to avoid index out-of-bounds warning
+ (#3464)
+
+---
+ src/core/coap/coap_message.cpp | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/src/core/coap/coap_message.cpp b/src/core/coap/coap_message.cpp
+index 9ed6d05df2c..44ea69cd7a9 100644
+--- a/src/core/coap/coap_message.cpp
++++ b/src/core/coap/coap_message.cpp
+@@ -317,8 +317,9 @@ otError Message::ParseHeader(void)
+ {
+     otError error = OT_ERROR_NONE;
+ 
+-    assert(mBuffer.mHead.mData + mBuffer.mHead.mInfo.mReserved &gt;=
+-           reinterpret_cast&lt;uint8_t *&gt;(&amp;GetHelpData()) + sizeof(GetHelpData()));
++    assert(mBuffer.mHead.mInfo.mReserved &gt;=
++           sizeof(GetHelpData()) +
++               static_cast&lt;size_t&gt;((reinterpret_cast&lt;uint8_t *&gt;(&amp;GetHelpData()) - mBuffer.mHead.mData)));
+ 
+     memset(&amp;GetHelpData(), 0, sizeof(GetHelpData()));
+ </pre><h3>out_of_bounds — datasets/testdata/patches/out_of_bounds/42472890.patch</h3><pre>From df835cab05765a630227dc04fa2245a78fd2f204 Mon Sep 17 00:00:00 2001
+From: Cristy &lt;urban-warrior@imagemagick.org&gt;
+Date: Wed, 10 Jul 2019 08:27:29 -0400
+Subject: [PATCH] https://github.com/ImageMagick/ImageMagick/issues/1631
+
+---
+ MagickCore/draw.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/MagickCore/draw.c b/MagickCore/draw.c
+index a4297758f2f..02bc17bea3d 100644
+--- a/MagickCore/draw.c
++++ b/MagickCore/draw.c
+@@ -2509,7 +2509,7 @@ static MagickBooleanType RenderMVGContent(Image *image,
+         return(MagickFalse);
+     }
+   if ((*draw_info-&gt;primitive == &#x27;@&#x27;) &amp;&amp; (strlen(draw_info-&gt;primitive) &gt; 1) &amp;&amp;
+-      (*(draw_info-&gt;primitive+1) != &#x27;-&#x27;) &amp;&amp; (depth == 1))
++      (*(draw_info-&gt;primitive+1) != &#x27;-&#x27;) &amp;&amp; (depth == 0))
+     primitive=FileToString(draw_info-&gt;primitive+1,~0UL,exception);
+   else
+     primitive=AcquireString(draw_info-&gt;primitive);</pre><h3>use_after_free — datasets/testdata/patches/use_after_free/42470339.patch</h3><pre>&lt;!doctype html&gt;&lt;html lang=&quot;en&quot;&gt;&lt;head&gt;&lt;title&gt;Making sure you&amp;#39;re not a bot!&lt;/title&gt;&lt;link rel=&quot;stylesheet&quot; href=&quot;/.within.website/x/xess/xess.min.css?cachebuster=v1.24.0-pre1&quot;&gt;&lt;meta name=&quot;viewport&quot; content=&quot;width=device-width, initial-scale=1.0&quot;&gt;&lt;meta name=&quot;robots&quot; content=&quot;noindex,nofollow&quot;&gt;&lt;meta property=&quot;og:type&quot; content=&quot;object&quot;&gt;&lt;meta property=&quot;og:site_name&quot; content=&quot;GitLab&quot;&gt;&lt;meta property=&quot;og:title&quot; content=&quot;Check return value of nodePush in xmlSAX2StartElement (8c9daf79) · Commits · GNOME / libxml2 · GitLab&quot;&gt;&lt;meta property=&quot;og:image&quot; content=&quot;https://gitlab.gnome.org/assets/twitter_card-570ddb06edf56a2312253c5872489847a0f385112ddbcd71ccfa1570febab5d2.jpg&quot;&gt;&lt;meta property=&quot;og:image:width&quot; content=&quot;64&quot;&gt;&lt;meta property=&quot;og:image:height&quot; content=&quot;64&quot;&gt;&lt;meta property=&quot;og:url&quot; content=&quot;https://gitlab.gnome.org/GNOME/libxml2/-/commit/8c9daf790abfc06e8ca3a44652542c577bb67d49&quot;&gt;&lt;meta property=&quot;twitter:description&quot; content=&quot;If the maximum depth is exceeded, nodePush halts the parser which results in freeing the input buffer since the previous commit. This invalidates the attribute pointers, so the error condition...&quot;&gt;&lt;meta property=&quot;og:description&quot; content=&quot;If the maximum depth is exceeded, nodePush halts the parser which results in freeing the input buffer since the previous commit. This invalidates the attribute pointers, so the error condition...&quot;&gt;&lt;meta property=&quot;twitter:card&quot; content=&quot;summary&quot;&gt;&lt;meta property=&quot;twitter:title&quot; content=&quot;Check return value of nodePush in xmlSAX2StartElement (8c9daf79) · Commits · GNOME / libxml2 · GitLab&quot;&gt;&lt;meta property=&quot;twitter:image&quot; content=&quot;https://gitlab.gnome.org/assets/twitter_card-570ddb06edf56a2312253c5872489847a0f385112ddbcd71ccfa1570febab5d2.jpg&quot;&gt;&lt;meta property=&quot;description&quot; content=&quot;If the maximum depth is exceeded, nodePush halts the parser which results in freeing the input buffer since the previous commit. This invalidates the attribute pointers, so the error condition...&quot;&gt;&lt;style&gt;
+        body,
+        html {
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .centered-div {
+            text-align: center;
+        }
+
+        #status {
+            font-variant-numeric: tabular-nums;
+        }
+
+        #progress {
+          display: none;
+          width: 90%;
+          width: min(20rem, 90%);
+          height: 2rem;
+          border-radius: 1rem;
+          overflow: hidden;
+          margin: 1rem 0 2rem;
+					outline-offset: 2px;
+					outline: #b16286 solid 4px;
+				}
+
+        .bar-inner {
+            background-color: #b16286;
+            height: 100%;
+            width: 0;
+            transition: width 0.25s ease-in;
+        }
+    	&lt;/style&gt;&lt;script id=&quot;anubis_version&quot; type=&quot;application/json&quot;&gt;&quot;v1.24.0-pre1&quot;
+&lt;/script&gt;&lt;script id=&quot;anubis_challenge&quot; type=&quot;application/json&quot;&gt;{&quot;rules&quot;:{&quot;algorithm&quot;:&quot;metarefresh&quot;,&quot;difficulty&quot;:1,&quot;report_as&quot;:1},&quot;challenge&quot;:{&quot;issuedAt&quot;:&quot;2025-12-08T09:42:55.669608074Z&quot;,&quot;metadata&quot;:{&quot;User-Agent&quot;:&quot;Python-urllib/3.10&quot;,&quot;X-Real-Ip&quot;:&quot;124.64.23.43&quot;},&quot;id&quot;:&quot;019afd57-b7b5-7939-b091-6e48934ac547&quot;,&quot;method&quot;:&quot;metarefresh&quot;,&quot;randomData&quot;:&quot;bff410085b5344b4c725ed4e661c9afc31455ce9086b912980461cad7abc5cd10efbae547d45d8d648c3d06b1021989b796e51c1d5bb87a0835fffc5809093dc&quot;,&quot;policyRuleHash&quot;:&quot;ac980f49c4d35fab&quot;,&quot;difficulty&quot;:1,&quot;spent&quot;:false}}
+&lt;/script&gt;&lt;script id=&quot;anubis_base_prefix&quot; type=&quot;application/json&quot;&gt;&quot;&quot;
+&lt;/script&gt;&lt;script id=&quot;anubis_public_url&quot; type=&quot;application/json&quot;&gt;&quot;&quot;
+&lt;/script&gt;&lt;/head&gt;&lt;body id=&quot;top&quot;&gt;&lt;main&gt;&lt;h1 id=&quot;title&quot; class=&quot;centered-div&quot;&gt;Making sure you&amp;#39;re not a bot!&lt;/h1&gt;&lt;div class=&quot;centered-div&quot;&gt;&lt;img id=&quot;image&quot; style=&quot;width:100%;max-width:256px;&quot; src=&quot;/.within.website/x/cmd/anubis/static/img/pensive.webp?cacheBuster=v1.24.0-pre1&quot;&gt; &lt;img style=&quot;display:none;&quot; style=&quot;width:100%;max-width:256px;&quot; src=&quot;/.within.website/x/cmd/anubis/static/img/happy.webp?cacheBuster=v1.24.0-pre1&quot;&gt;&lt;p id=&quot;status&quot;&gt;Loading...&lt;/p&gt;&lt;p&gt;Please wait a moment while we ensure the security of your connection.&lt;/p&gt;&lt;meta http-equiv=&quot;refresh&quot; content=&quot;2; url=/.within.website/x/cmd/anubis/api/pass-challenge?challenge=bff410085b5344b4c725ed4e661c9afc31455ce9086b912980461cad7abc5cd10efbae547d45d8d648c3d06b1021989b796e51c1d5bb87a0835fffc5809093dc&amp;amp;id=019afd57-b7b5-7939-b091-6e48934ac547&amp;amp;redir=%2FGNOME%2Flibxml2%2F-%2Fcommit%2F8c9daf790abfc06e8ca3a44652542c577bb67d49&quot;&gt;&lt;/div&gt;&lt;footer&gt;&lt;div class=&quot;centered-div&quot;&gt;&lt;p&gt;Protected by &lt;a href=&quot;https://github.com/TecharoHQ/anubis&quot;&gt;Anubis&lt;/a&gt; From &lt;a href=&quot;https://techaro.lol&quot;&gt;Techaro&lt;/a&gt;. Made with ❤️ in 🇨🇦.&lt;/p&gt;&lt;p&gt;Mascot design by &lt;a href=&quot;https://bsky.app/profile/celphase.bsky.social&quot;&gt;CELPHASE&lt;/a&gt;.&lt;/p&gt;&lt;p&gt;This website is running Anubis version &lt;code&gt;v1.24.0-pre1&lt;/code&gt;.&lt;/p&gt;&lt;/div&gt;&lt;/footer&gt;&lt;/main&gt;&lt;/body&gt;&lt;/html&gt;</pre><h3>use_after_free — datasets/testdata/patches/use_after_free/42470348.patch</h3><pre>&lt;!doctype html&gt;&lt;html lang=&quot;en&quot;&gt;&lt;head&gt;&lt;title&gt;Making sure you&amp;#39;re not a bot!&lt;/title&gt;&lt;link rel=&quot;stylesheet&quot; href=&quot;/.within.website/x/xess/xess.min.css?cachebuster=v1.24.0-pre1&quot;&gt;&lt;meta name=&quot;viewport&quot; content=&quot;width=device-width, initial-scale=1.0&quot;&gt;&lt;meta name=&quot;robots&quot; content=&quot;noindex,nofollow&quot;&gt;&lt;meta property=&quot;og:description&quot; content=&quot;If the maximum depth is exceeded, nodePush halts the parser which results in freeing the input buffer since the previous commit. This invalidates the attribute pointers, so the error condition...&quot;&gt;&lt;meta property=&quot;og:image&quot; content=&quot;https://gitlab.gnome.org/assets/twitter_card-570ddb06edf56a2312253c5872489847a0f385112ddbcd71ccfa1570febab5d2.jpg&quot;&gt;&lt;meta property=&quot;og:site_name&quot; content=&quot;GitLab&quot;&gt;&lt;meta property=&quot;og:title&quot; content=&quot;Check return value of nodePush in xmlSAX2StartElement (8c9daf79) · Commits · GNOME / libxml2 · GitLab&quot;&gt;&lt;meta property=&quot;og:type&quot; content=&quot;object&quot;&gt;&lt;meta property=&quot;og:url&quot; content=&quot;https://gitlab.gnome.org/GNOME/libxml2/-/commit/8c9daf790abfc06e8ca3a44652542c577bb67d49&quot;&gt;&lt;meta property=&quot;twitter:description&quot; content=&quot;If the maximum depth is exceeded, nodePush halts the parser which results in freeing the input buffer since the previous commit. This invalidates the attribute pointers, so the error condition...&quot;&gt;&lt;meta property=&quot;twitter:title&quot; content=&quot;Check return value of nodePush in xmlSAX2StartElement (8c9daf79) · Commits · GNOME / libxml2 · GitLab&quot;&gt;&lt;meta property=&quot;description&quot; content=&quot;If the maximum depth is exceeded, nodePush halts the parser which results in freeing the input buffer since the previous commit. This invalidates the attribute pointers, so the error condition...&quot;&gt;&lt;meta property=&quot;og:image:height&quot; content=&quot;64&quot;&gt;&lt;meta property=&quot;og:image:width&quot; content=&quot;64&quot;&gt;&lt;meta property=&quot;twitter:card&quot; content=&quot;summary&quot;&gt;&lt;meta property=&quot;twitter:image&quot; content=&quot;https://gitlab.gnome.org/assets/twitter_card-570ddb06edf56a2312253c5872489847a0f385112ddbcd71ccfa1570febab5d2.jpg&quot;&gt;&lt;style&gt;
+        body,
+        html {
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .centered-div {
+            text-align: center;
+        }
+
+        #status {
+            font-variant-numeric: tabular-nums;
+        }
+
+        #progress {
+          display: none;
+          width: 90%;
+          width: min(20rem, 90%);
+          height: 2rem;
+          border-radius: 1rem;
+          overflow: hidden;
+          margin: 1rem 0 2rem;
+					outline-offset: 2px;
+					outline: #b16286 solid 4px;
+				}
+
+        .bar-inner {
+            background-color: #b16286;
+            height: 100%;
+            width: 0;
+            transition: width 0.25s ease-in;
+        }
+    	&lt;/style&gt;&lt;script id=&quot;anubis_version&quot; type=&quot;application/json&quot;&gt;&quot;v1.24.0-pre1&quot;
+&lt;/script&gt;&lt;script id=&quot;anubis_challenge&quot; type=&quot;application/json&quot;&gt;{&quot;rules&quot;:{&quot;algorithm&quot;:&quot;metarefresh&quot;,&quot;difficulty&quot;:1,&quot;report_as&quot;:1},&quot;challenge&quot;:{&quot;issuedAt&quot;:&quot;2025-12-08T09:42:57.659817187Z&quot;,&quot;metadata&quot;:{&quot;User-Agent&quot;:&quot;Python-urllib/3.10&quot;,&quot;X-Real-Ip&quot;:&quot;124.64.23.43&quot;},&quot;id&quot;:&quot;019afd57-bf7b-7c6d-afea-53450ea7173d&quot;,&quot;method&quot;:&quot;metarefresh&quot;,&quot;randomData&quot;:&quot;80c138776f99ba5f0221545e3d8daaf77fc52e71cf42f14a09d951504db0f4c5dcb8e0472ebc66c7ccb36a778ba562341136065ff440816cffba02e560a8e215&quot;,&quot;policyRuleHash&quot;:&quot;ac980f49c4d35fab&quot;,&quot;difficulty&quot;:1,&quot;spent&quot;:false}}
+&lt;/script&gt;&lt;script id=&quot;anubis_base_prefix&quot; type=&quot;application/json&quot;&gt;&quot;&quot;
+&lt;/script&gt;&lt;script id=&quot;anubis_public_url&quot; type=&quot;application/json&quot;&gt;&quot;&quot;
+&lt;/script&gt;&lt;/head&gt;&lt;body id=&quot;top&quot;&gt;&lt;main&gt;&lt;h1 id=&quot;title&quot; class=&quot;centered-div&quot;&gt;Making sure you&amp;#39;re not a bot!&lt;/h1&gt;&lt;div class=&quot;centered-div&quot;&gt;&lt;img id=&quot;image&quot; style=&quot;width:100%;max-width:256px;&quot; src=&quot;/.within.website/x/cmd/anubis/static/img/pensive.webp?cacheBuster=v1.24.0-pre1&quot;&gt; &lt;img style=&quot;display:none;&quot; style=&quot;width:100%;max-width:256px;&quot; src=&quot;/.within.website/x/cmd/anubis/static/img/happy.webp?cacheBuster=v1.24.0-pre1&quot;&gt;&lt;p id=&quot;status&quot;&gt;Loading...&lt;/p&gt;&lt;p&gt;Please wait a moment while we ensure the security of your connection.&lt;/p&gt;&lt;meta http-equiv=&quot;refresh&quot; content=&quot;2; url=/.within.website/x/cmd/anubis/api/pass-challenge?challenge=80c138776f99ba5f0221545e3d8daaf77fc52e71cf42f14a09d951504db0f4c5dcb8e0472ebc66c7ccb36a778ba562341136065ff440816cffba02e560a8e215&amp;amp;id=019afd57-bf7b-7c6d-afea-53450ea7173d&amp;amp;redir=%2FGNOME%2Flibxml2%2F-%2Fcommit%2F8c9daf790abfc06e8ca3a44652542c577bb67d49&quot;&gt;&lt;/div&gt;&lt;footer&gt;&lt;div class=&quot;centered-div&quot;&gt;&lt;p&gt;Protected by &lt;a href=&quot;https://github.com/TecharoHQ/anubis&quot;&gt;Anubis&lt;/a&gt; From &lt;a href=&quot;https://techaro.lol&quot;&gt;Techaro&lt;/a&gt;. Made with ❤️ in 🇨🇦.&lt;/p&gt;&lt;p&gt;Mascot design by &lt;a href=&quot;https://bsky.app/profile/celphase.bsky.social&quot;&gt;CELPHASE&lt;/a&gt;.&lt;/p&gt;&lt;p&gt;This website is running Anubis version &lt;code&gt;v1.24.0-pre1&lt;/code&gt;.&lt;/p&gt;&lt;/div&gt;&lt;/footer&gt;&lt;/main&gt;&lt;/body&gt;&lt;/html&gt;</pre><h3>use_after_free — datasets/testdata/patches/use_after_free/42470745.patch</h3><pre>From 21771329dd2f13568f458a925671f9db80bc8ade Mon Sep 17 00:00:00 2001
+From: Julius Pfrommer &lt;julius.pfrommer@web.de&gt;
+Date: Sat, 6 Oct 2018 15:36:45 +0200
+Subject: [PATCH] Subscription: Close subscriptions before closing the
+ SecureChannel
+
+---
+ src/server/ua_session.c         | 13 -------------
+ src/server/ua_session_manager.c | 31 ++++++++++++++++++++++---------
+ 2 files changed, 22 insertions(+), 22 deletions(-)
+
+diff --git a/src/server/ua_session.c b/src/server/ua_session.c
+index 075c9ccfaaa..34f16f6aa0f 100644
+--- a/src/server/ua_session.c
++++ b/src/server/ua_session.c
+@@ -36,19 +36,6 @@ void UA_Session_deleteMembersCleanup(UA_Session *session, UA_Server* server) {
+         UA_BrowseDescription_deleteMembers(&amp;cp-&gt;browseDescription);
+         UA_free(cp);
+     }
+-
+-#ifdef UA_ENABLE_SUBSCRIPTIONS
+-    UA_Subscription *sub, *tempsub;
+-    LIST_FOREACH_SAFE(sub, &amp;session-&gt;serverSubscriptions, listEntry, tempsub) {
+-        UA_Session_deleteSubscription(server, session, sub-&gt;subscriptionId);
+-    }
+-
+-    UA_PublishResponseEntry *entry;
+-    while((entry = UA_Session_dequeuePublishReq(session))) {
+-        UA_PublishResponse_deleteMembers(&amp;entry-&gt;response);
+-        UA_free(entry);
+-    }
+-#endif
+ }
+ 
+ void UA_Session_attachToSecureChannel(UA_Session *session, UA_SecureChannel *channel) {
+diff --git a/src/server/ua_session_manager.c b/src/server/ua_session_manager.c
+index 910c225eb7d..be7de86d8f8 100644
+--- a/src/server/ua_session_manager.c
++++ b/src/server/ua_session_manager.c
+@@ -11,6 +11,7 @@
+ 
+ #include &quot;ua_session_manager.h&quot;
+ #include &quot;ua_server_internal.h&quot;
++#include &quot;ua_subscription.h&quot;
+ 
+ UA_StatusCode
+ UA_SessionManager_init(UA_SessionManager *sm, UA_Server *server) {
+@@ -20,15 +21,6 @@ UA_SessionManager_init(UA_SessionManager *sm, UA_Server *server) {
+     return UA_STATUSCODE_GOOD;
+ }
+ 
+-void UA_SessionManager_deleteMembers(UA_SessionManager *sm) {
+-    session_list_entry *current, *temp;
+-    LIST_FOREACH_SAFE(current, &amp;sm-&gt;sessions, pointers, temp) {
+-        LIST_REMOVE(current, pointers);
+-        UA_Session_deleteMembersCleanup(&amp;current-&gt;session, sm-&gt;server);
+-        UA_free(current);
+-    }
+-}
+-
+ /* Delayed callback to free the session memory */
+ static void
+ removeSessionCallback(UA_Server *server, session_list_entry *entry) {
+@@ -37,6 +29,20 @@ removeSessionCallback(UA_Server *server, session_list_entry *entry) {
+ 
+ static void
+ removeSession(UA_SessionManager *sm, session_list_entry *sentry) {
++    /* Remove the Subscriptions */
++#ifdef UA_ENABLE_SUBSCRIPTIONS
++    UA_Subscription *sub, *tempsub;
++    LIST_FOREACH_SAFE(sub, &amp;sentry-&gt;session.serverSubscriptions, listEntry, tempsub) {
++        UA_Session_deleteSubscription(sm-&gt;server, &amp;sentry-&gt;session, sub-&gt;subscriptionId);
++    }
++
++    UA_PublishResponseEntry *entry;
++    while((entry = UA_Session_dequeuePublishReq(&amp;sentry-&gt;session))) {
++        UA_PublishResponse_deleteMembers(&amp;entry-&gt;response);
++        UA_free(entry);
++    }
++#endif</pre><h3>double_free — datasets/testdata/patches/double_free/42471555.patch</h3><pre>From 4d1ca7035df8d1688b7d85e6495722f57870726f Mon Sep 17 00:00:00 2001
+From: Yifeng Sun &lt;pkusunyifeng@gmail.com&gt;
+Date: Tue, 27 Nov 2018 16:10:11 -0800
+Subject: [PATCH] ofctl_parse_target: Fix memory leaks if there is no usable
+ protocol
+
+When there is no usable protocol, ofctl_parse_flows__ returns without
+properly freeing memory. A previous patch failed to fix this issue.
+This patch fixes it.
+
+Reported-at: https://bugs.chromium.org/p/oss-fuzz/issues/detail?id=11406
+Reported-at: https://bugs.chromium.org/p/oss-fuzz/issues/detail?id=11408
+Signed-off-by: Yifeng Sun &lt;pkusunyifeng@gmail.com&gt;
+Signed-off-by: Ben Pfaff &lt;blp@ovn.org&gt;
+---
+ tests/oss-fuzz/ofctl_parse_target.c | 7 +++++--
+ 1 file changed, 5 insertions(+), 2 deletions(-)
+
+diff --git a/tests/oss-fuzz/ofctl_parse_target.c b/tests/oss-fuzz/ofctl_parse_target.c
+index d4712a44247..b4db52f7ed4 100644
+--- a/tests/oss-fuzz/ofctl_parse_target.c
++++ b/tests/oss-fuzz/ofctl_parse_target.c
+@@ -22,7 +22,7 @@ ofctl_parse_flows__(struct ofputil_flow_mod *fms, size_t n_fms,
+ 
+     if (!(usable_protocols &amp; OFPUTIL_P_ANY)) {
+         printf(&quot;no usable protocol\n&quot;);
+-        return;
++        goto free;
+     }
+     for (i = 0; i &lt; sizeof(enum ofputil_protocol) * CHAR_BIT; i++) {
+         protocol = 1u &lt;&lt; i;
+@@ -40,7 +40,11 @@ ofctl_parse_flows__(struct ofputil_flow_mod *fms, size_t n_fms,
+ 
+         msg = ofputil_encode_flow_mod(fm, protocol);
+         ofpbuf_delete(msg);
++    }
+ 
++free:
++    for (i = 0; i &lt; n_fms; i++) {
++        struct ofputil_flow_mod *fm = &amp;fms[i];
+         free(CONST_CAST(struct ofpact *, fm-&gt;ofpacts));
+         minimatch_destroy(&amp;fm-&gt;match);
+     }
+@@ -62,7 +66,6 @@ ofctl_parse_flow(const char *input, int command)
+         free(error);
+     } else {
+         ofctl_parse_flows__(&amp;fm, 1, usable_protocols);
+-        minimatch_destroy(&amp;fm.match);
+     }
+ }
+ </pre><h3>double_free — datasets/testdata/patches/double_free/42472478.patch</h3><pre>From 3b81442cd5c11099ae9245074d24ef679b4473fa Mon Sep 17 00:00:00 2001
+From: Behdad Esfahbod &lt;behdad@behdad.org&gt;
+Date: Mon, 24 Dec 2018 11:31:04 -0500
+Subject: [PATCH] [vector] Change pre-alloced count from 8 to 2
+
+I&#x27;m thinking about dropping it to zero, but that needs slight code changes.
+---
+ src/hb-vector.hh | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/hb-vector.hh b/src/hb-vector.hh
+index 95389c3df6c..2e31b89c604 100644
+--- a/src/hb-vector.hh
++++ b/src/hb-vector.hh
+@@ -32,7 +32,7 @@
+ #include &quot;hb-null.hh&quot;
+ 
+ 
+-template &lt;typename Type, unsigned int PreallocedCount=8&gt;
++template &lt;typename Type, unsigned int PreallocedCount=2&gt;
+ struct hb_vector_t
+ {
+   typedef Type item_t;</pre><h3>double_free — datasets/testdata/patches/double_free/42472675.patch</h3><pre>&lt;!doctype html&gt;&lt;html lang=&quot;en&quot;&gt;&lt;head&gt;&lt;title&gt;Making sure you&amp;#39;re not a bot!&lt;/title&gt;&lt;link rel=&quot;stylesheet&quot; href=&quot;/.within.website/x/xess/xess.min.css?cachebuster=v1.24.0-pre1&quot;&gt;&lt;meta name=&quot;viewport&quot; content=&quot;width=device-width, initial-scale=1.0&quot;&gt;&lt;meta name=&quot;robots&quot; content=&quot;noindex,nofollow&quot;&gt;&lt;meta property=&quot;og:image:width&quot; content=&quot;64&quot;&gt;&lt;meta property=&quot;og:image:height&quot; content=&quot;64&quot;&gt;&lt;meta property=&quot;twitter:description&quot; content=&quot;The recent commit &amp;#34;Memory leak in xmlFreeID (xmlreader.c)&amp;#34; introduced a double-free.&quot;&gt;&lt;meta property=&quot;twitter:image&quot; content=&quot;https://gitlab.gnome.org/assets/twitter_card-570ddb06edf56a2312253c5872489847a0f385112ddbcd71ccfa1570febab5d2.jpg&quot;&gt;&lt;meta property=&quot;description&quot; content=&quot;The recent commit &amp;#34;Memory leak in xmlFreeID (xmlreader.c)&amp;#34; introduced a double-free.&quot;&gt;&lt;meta property=&quot;og:type&quot; content=&quot;object&quot;&gt;&lt;meta property=&quot;og:site_name&quot; content=&quot;GitLab&quot;&gt;&lt;meta property=&quot;og:title&quot; content=&quot;Fix commit &amp;#34;Memory leak in xmlFreeID (xmlreader.c)&amp;#34; (26828cb3) · Commits · GNOME / libxml2 · GitLab&quot;&gt;&lt;meta property=&quot;og:description&quot; content=&quot;The recent commit &amp;#34;Memory leak in xmlFreeID (xmlreader.c)&amp;#34; introduced a double-free.&quot;&gt;&lt;meta property=&quot;og:image&quot; content=&quot;https://gitlab.gnome.org/assets/twitter_card-570ddb06edf56a2312253c5872489847a0f385112ddbcd71ccfa1570febab5d2.jpg&quot;&gt;&lt;meta property=&quot;og:url&quot; content=&quot;https://gitlab.gnome.org/GNOME/libxml2/-/commit/26828cb3a1294e09e42064f4769d4b3c0a8623b3&quot;&gt;&lt;meta property=&quot;twitter:card&quot; content=&quot;summary&quot;&gt;&lt;meta property=&quot;twitter:title&quot; content=&quot;Fix commit &amp;#34;Memory leak in xmlFreeID (xmlreader.c)&amp;#34; (26828cb3) · Commits · GNOME / libxml2 · GitLab&quot;&gt;&lt;style&gt;
+        body,
+        html {
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .centered-div {
+            text-align: center;
+        }
+
+        #status {
+            font-variant-numeric: tabular-nums;
+        }
+
+        #progress {
+          display: none;
+          width: 90%;
+          width: min(20rem, 90%);
+          height: 2rem;
+          border-radius: 1rem;
+          overflow: hidden;
+          margin: 1rem 0 2rem;
+					outline-offset: 2px;
+					outline: #b16286 solid 4px;
+				}
+
+        .bar-inner {
+            background-color: #b16286;
+            height: 100%;
+            width: 0;
+            transition: width 0.25s ease-in;
+        }
+    	&lt;/style&gt;&lt;script id=&quot;anubis_version&quot; type=&quot;application/json&quot;&gt;&quot;v1.24.0-pre1&quot;
+&lt;/script&gt;&lt;script id=&quot;anubis_challenge&quot; type=&quot;application/json&quot;&gt;{&quot;rules&quot;:{&quot;algorithm&quot;:&quot;metarefresh&quot;,&quot;difficulty&quot;:1,&quot;report_as&quot;:1},&quot;challenge&quot;:{&quot;issuedAt&quot;:&quot;2025-12-08T09:43:01.372164598Z&quot;,&quot;metadata&quot;:{&quot;User-Agent&quot;:&quot;Python-urllib/3.10&quot;,&quot;X-Real-Ip&quot;:&quot;124.64.23.43&quot;},&quot;id&quot;:&quot;019afd57-cdfc-7279-8de7-87bc67b8ef61&quot;,&quot;method&quot;:&quot;metarefresh&quot;,&quot;randomData&quot;:&quot;bd4d9526d3fb750535fdf41a0d1aab232cb33492b503fdaa38572a0c3843376447f5e2cc921cdec05b04b8037c705c485e5c77362004d57586ccf2cde5eaffcd&quot;,&quot;policyRuleHash&quot;:&quot;ac980f49c4d35fab&quot;,&quot;difficulty&quot;:1,&quot;spent&quot;:false}}
+&lt;/script&gt;&lt;script id=&quot;anubis_base_prefix&quot; type=&quot;application/json&quot;&gt;&quot;&quot;
+&lt;/script&gt;&lt;script id=&quot;anubis_public_url&quot; type=&quot;application/json&quot;&gt;&quot;&quot;
+&lt;/script&gt;&lt;/head&gt;&lt;body id=&quot;top&quot;&gt;&lt;main&gt;&lt;h1 id=&quot;title&quot; class=&quot;centered-div&quot;&gt;Making sure you&amp;#39;re not a bot!&lt;/h1&gt;&lt;div class=&quot;centered-div&quot;&gt;&lt;img id=&quot;image&quot; style=&quot;width:100%;max-width:256px;&quot; src=&quot;/.within.website/x/cmd/anubis/static/img/pensive.webp?cacheBuster=v1.24.0-pre1&quot;&gt; &lt;img style=&quot;display:none;&quot; style=&quot;width:100%;max-width:256px;&quot; src=&quot;/.within.website/x/cmd/anubis/static/img/happy.webp?cacheBuster=v1.24.0-pre1&quot;&gt;&lt;p id=&quot;status&quot;&gt;Loading...&lt;/p&gt;&lt;p&gt;Please wait a moment while we ensure the security of your connection.&lt;/p&gt;&lt;meta http-equiv=&quot;refresh&quot; content=&quot;2; url=/.within.website/x/cmd/anubis/api/pass-challenge?challenge=bd4d9526d3fb750535fdf41a0d1aab232cb33492b503fdaa38572a0c3843376447f5e2cc921cdec05b04b8037c705c485e5c77362004d57586ccf2cde5eaffcd&amp;amp;id=019afd57-cdfc-7279-8de7-87bc67b8ef61&amp;amp;redir=%2FGNOME%2Flibxml2%2F-%2Fcommit%2F26828cb3a1294e09e42064f4769d4b3c0a8623b3&quot;&gt;&lt;/div&gt;&lt;footer&gt;&lt;div class=&quot;centered-div&quot;&gt;&lt;p&gt;Protected by &lt;a href=&quot;https://github.com/TecharoHQ/anubis&quot;&gt;Anubis&lt;/a&gt; From &lt;a href=&quot;https://techaro.lol&quot;&gt;Techaro&lt;/a&gt;. Made with ❤️ in 🇨🇦.&lt;/p&gt;&lt;p&gt;Mascot design by &lt;a href=&quot;https://bsky.app/profile/celphase.bsky.social&quot;&gt;CELPHASE&lt;/a&gt;.&lt;/p&gt;&lt;p&gt;This website is running Anubis version &lt;code&gt;v1.24.0-pre1&lt;/code&gt;.&lt;/p&gt;&lt;/div&gt;&lt;/footer&gt;&lt;/main&gt;&lt;/body&gt;&lt;/html&gt;</pre>
+</body></html>

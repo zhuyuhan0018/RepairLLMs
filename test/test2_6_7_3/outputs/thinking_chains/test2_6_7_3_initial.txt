@@ -1,0 +1,103 @@
+=== Fix Point: fix_point_1 ===
+[Iteration 1]
+As the vulnerability description states: "Subscription cleanup should be added before detaching from SecureChannel".
+
+In the buggy code, I see `UA_Session_deleteSubscription(server, session, sub->subscriptionId);` at `fix_point_1` which is inside the `UA_SessionManager_deleteMembers` function. This code is executed while iterating over `session->serverSubscriptions`.
+
+In the fixed code, I see the subscription cleanup moved to the `removeSession` function, specifically inside the `removeSession` function where it iterates over `sentry->session.serverSubscriptions` instead of `session->serverSubscriptions`. The code is moved from `UA_SessionManager_deleteMembers` to `removeSession`.
+
+The code is moved from X (UA_SessionManager_deleteMembers) to Y (removeSession) because the subscription cleanup must occur before detaching from the SecureChannel to prevent use-after-free vulnerabilities. If the session is detached before subscriptions are cleaned up, it may lead to accessing freed memory.
+
+REMOVED (-): `UA_Subscription *sub, *tempsub;`, `LIST_FOREACH_SAFE(sub, &session->serverSubscriptions, listEntry, tempsub) {`, `UA_Session_deleteSubscription(server, session, sub->subscriptionId);`, `}`  
+ADDED (+): `/* Remove the Subscriptions */`, `#ifdef UA_ENABLE_SUBSCRIPTIONS`, `UA_Subscription *sub, *tempsub;`, `LIST_FOREACH_SAFE(sub, &sentry->session.serverSubscriptions, listEntry, tempsub) {`, `UA_Session_deleteSubscription(sm->server, &sentry->session, sub->subscriptionId);`, `}`  
+MOVED: The subscription cleanup logic was moved from `UA_SessionManager_deleteMembers` to `removeSession`.
+
+[Final Fix]
+-    UA_Subscription *sub, *tempsub;
+-    LIST_FOREACH_SAFE(sub, &session->serverSubscriptions, listEntry, tempsub) {
+-        UA_Session_deleteSubscription(server, session, sub->subscriptionId);
+-    }
++
++    /* Remove the Subscriptions */
++#ifdef UA_ENABLE_SUBSCRIPTIONS
++    UA_Subscription *sub, *tempsub;
++    LIST_FOREACH_SAFE(sub, &sentry->session.serverSubscriptions, listEntry, tempsub) {
++        UA_Session_deleteSubscription(sm->server, &sentry->session, sub->subscriptionId);
++    }
++#endif
+
+=== Fix Point: fix_point_2 ===
+[Iteration 1]
+As the vulnerability description states: "Subscription cleanup should be added before detaching from SecureChannel".
+
+In the buggy code, I see the code that deletes subscriptions and publish requests at the end of the `UA_Session_deleteMembers` function, but it is not part of the `removeSession` function. The subscription cleanup is outside the context of the session being removed, which can lead to use-after-free issues if the session is already freed before the subscriptions are cleaned up.
+
+In the fixed code, I see the subscription cleanup code moved inside the `removeSession` function, specifically before detaching from the SecureChannel. This ensures that subscriptions are properly cleaned up before the session is detached and potentially freed.
+
+The code is moved from the `UA_Session_deleteMembers` function to the `removeSession` function because the subscription cleanup must occur before the session is detached from the SecureChannel to prevent accessing memory that may have already been freed.
+
+REMOVED (-): The subscription and publish request cleanup code from the `UA_Session_deleteMembers` function.
+ADDED (+): The subscription and publish request cleanup code inside the `removeSession` function, wrapped in `#ifdef UA_ENABLE_SUBSCRIPTIONS`.
+MOVED: The subscription and publish request cleanup code from `UA_Session_deleteMembers` to `removeSession`.
+
+[Final Fix]
+-    UA_Subscription *sub, *tempsub;
+-    LIST_FOREACH_SAFE(sub, &session->serverSubscriptions, listEntry, tempsub) {
+-        UA_Session_deleteSubscription(server, session, sub->subscriptionId);
+-    }
+-
+-    UA_PublishResponseEntry *entry;
+-    while((entry = UA_Session_dequeuePublishReq(session))) {
+-        UA_PublishResponse_deleteMembers(&entry->response);
+-        UA_free(entry);
+-    }
++
++    /* Remove the Subscriptions */
++#ifdef UA_ENABLE_SUBSCRIPTIONS
++    UA_Subscription *sub, *tempsub;
++    LIST_FOREACH_SAFE(sub, &sentry->session.serverSubscriptions, listEntry, tempsub) {
++        UA_Session_deleteSubscription(sm->server, &sentry->session, sub->subscriptionId);
++    }
++
++    UA_PublishResponseEntry *entry;
++    while((entry = UA_Session_dequeuePublishReq(&sentry->session))) {
++        UA_PublishResponse_deleteMembers(&entry->response);
++        UA_free(entry);
++    }
++#endif
+
+=== Fix Point: fix_point_3 ===
+[Iteration 1]
+As the vulnerability description states: "Subscription cleanup should be added before detaching from SecureChannel".
+In the buggy code, I see the code for cleaning up subscriptions and publish responses inside the `UA_Session_deleteMembersCleanup` function, which is called before detaching from the SecureChannel.
+In the fixed code, I see the code moved to the `removeSession` function, where it is executed before detaching from the SecureChannel.
+The code is moved from X to Y because the subscription cleanup must occur before detaching from the SecureChannel to prevent use-after-free vulnerabilities.
+REMOVED: lines related to subscription cleanup and publish response processing in `UA_Session_deleteMembersCleanup`
+ADDED: subscription cleanup and publish response processing in `removeSession`
+MOVED: the subscription cleanup and publish response processing code from `UA_Session_deleteMembersCleanup` to `removeSession`
+
+[Final Fix]
+-    UA_Subscription *sub, *tempsub;
+-    LIST_FOREACH_SAFE(sub, &session->serverSubscriptions, listEntry, tempsub) {
+-        UA_Session_deleteSubscription(server, session, sub->subscriptionId);
+-    }
+-
+-    UA_PublishResponseEntry *entry;
+-    while((entry = UA_Session_dequeuePublishReq(session))) {
+-        UA_PublishResponse_deleteMembers(&entry->response);
+-        UA_free(entry);
+-    }
++
++    /* Remove the Subscriptions */
++#ifdef UA_ENABLE_SUBSCRIPTIONS
++    UA_Subscription *sub, *tempsub;
++    LIST_FOREACH_SAFE(sub, &sentry->session.serverSubscriptions, listEntry, tempsub) {
++        UA_Session_deleteSubscription(sm->server, &sentry->session, sub->subscriptionId);
++    }
++
++    UA_PublishResponseEntry *entry;
++    while((entry = UA_Session_dequeuеPublishReq(&sentry->session))) {
++        UA_PublishResponse_deleteMembers(&entry->response);
++        UA_free(entry);
++    }
++#endif
