@@ -1,0 +1,50 @@
+Repair Order Analysis for test6
+============================================================
+
+Extraction Method: Model API Analysis
+API Duration: 273.12 seconds
+Total Fix Points: 3
+
+Fix Points Identified by Model:
+------------------------------------------------------------
+
+Fix Point 1:
+  Location: fix_point_1
+  Description: Add subscription cleanup code to removeSession function in src/server/ua_session_manager.c (lines 37-42) - this should execute BEFORE UA_Session_detachFromSecureChannel to prevent use-after-free when accessing subscription resources after SecureChannel detachment
+
+Fix Point 2:
+  Location: fix_point_2
+  Description: Remove subscription cleanup code from UA_Session_deleteMembersCleanup function in src/server/ua_session.c (lines 36-54) - this code is moved to execute earlier in the removeSession function to ensure proper resource cleanup order
+
+Fix Point 3:
+  Location: fix_point_3
+  Description: Ensure proper header includes in src/server/ua_session_manager.c if subscription-related types/functions are used but not currently included
+
+============================================================
+Comparison: Model vs JSON
+============================================================
+Model identified: 3 fix point(s)
+JSON contains: 4 fix point(s)
+
+JSON Fix Points (for reference):
+------------------------------------------------------------
+
+Fix Point 1:
+  File: src/server/ua_session.c
+  Function: UA_Session_deleteMembersCleanup
+  Lines: 36-54
+
+Fix Point 2:
+  File: src/server/ua_session_manager.c
+  Function: None
+  Lines: 11-16
+
+Fix Point 3:
+  File: src/server/ua_session_manager.c
+  Function: removeSession
+  Lines: 37-42
+
+Fix Point 4:
+  File: src/server/ua_session_manager.c
+  Function: UA_SessionManager_deleteMembers
+  Lines: 20-61

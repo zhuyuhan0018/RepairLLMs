@@ -14,8 +14,7 @@ class PromptTemplates:
     """
     
     @staticmethod
-    def get_repair_order_analysis_prompt(buggy_code: str, fixed_code: str, 
-                                        bug_location: str) -> str:
+    def get_repair_order_analysis_prompt(buggy_code: str, bug_location: str) -> str:
         """
         生成修复顺序分析提示词
         用于分析需要修复的位置及其逻辑顺序（哪些函数/文件需要先修复）
@@ -24,7 +23,6 @@ class PromptTemplates:
         
         Args:
             buggy_code: 原始有漏洞的代码
-            fixed_code: 修复后的代码
             bug_location: 漏洞位置（文件/函数），可能包含详细的文件、函数和行号信息
             
         Returns:
@@ -43,52 +41,125 @@ class PromptTemplates:
         
         return f"""Analyze repair order for a MEMORY ACCESS vulnerability. Identify fix points and their logical order.
 
-## Patch Format:
-- Lines with "-" = REMOVED (buggy code)
-- Lines with "+" = ADDED (fixed code)
-- No prefix = context
-
 {vulnerability_context}
 
-## Bug Location:
+---
+
+## Input Information
+
+### Bug Location:
 {bug_location}
 
-## Buggy Code:
+### Buggy Code:
 ```c
 {buggy_code}
 ```
 
-## Analysis Task:
-1. **How many fix points?** (Each vulnerability location = likely one fix point)
-2. **What is the repair order?** (Consider dependencies - **MUST follow rules below**)
-3. **What needs to be fixed at each point?**
-   - If description says "should be added before...", code needs to be MOVED earlier
-   - If description says "removed from...", code is being removed from wrong location
+---
 
-**Focus on:**
-- Memory safety: use-after-free, buffer overflow, null pointer
-- Resource release order: what must be cleaned up before what
-- Code movement: why code is moved from one location to another
+## Analysis Task
 
-## Repair Order Rules:
-1. **Ensure target function is ready first**: If call relationship change involves calling a new/modified function, ensure that function has necessary code BEFORE changing the call
-2. **Add before remove**: Add code to new location before removing from old location - **MUST add first**
-3. **Call relationship changes**: After target function is ready, change call relationship
-4. **Code removal**: Remove old code last
+1. **How many fix points?** 
+   - Each vulnerability location = one fix point
+   - Include: header includes, code additions, code removals, call relationship changes
 
-**Dependency Analysis:**
-- If "call X instead of Y" and X needs code added → Add code to X FIRST, then change call
-- If code moves from A to B → Add to B first, then remove from A
-- Always ensure functions are ready before being called
+2. **What is the repair order?** 
+   - Consider dependencies between fix points
+   - Follow the repair order rules below
 
-**Response Format:**
+---
+
+## Focus Areas
+
+- **Memory safety**: use-after-free, buffer overflow, null pointer
+- **Resource release order**: what must be cleaned up before what
+- **Dependencies**: what must be done before what
+- **Code movement**: why code is moved from one location to another
+
+---
+
+## Repair Order Rules (MUST follow in this order)
+
+1. **Header includes first**: 
+   - If a type/function is defined in a file which this file does not include, add the include directive first
+   - Example: If code uses `UA_Subscription` but file doesn't include `ua_subscription.h`, add `#include "ua_subscription.h"` first
+
+2. **Ensure target function is ready**: 
+   - If call relationship change involves calling a new/modified function, ensure that function has necessary code BEFORE changing the call
+
+3. **Add before remove**: 
+   - Add code to new location before removing from old location
+   - **MUST add first** - this is critical for correctness
+
+4. **Call relationship changes**: 
+   - After target function is ready, change call relationship
+   - Example: Change `UA_Session_deleteMembersCleanup(...)` to `removeSession(...)`
+
+5. **Code removal**: 
+   - Remove old code last, after new code is in place and calls are updated
+
+---
+
+## Dependency Analysis Guidelines
+
+- **Header dependencies**: 
+  - If code uses types/functions from another file → Include that header FIRST
+  - Example: `If A type is defined in a file which this file does not include, you should consider include this file first.`
+
+- **Function dependencies**: 
+  - If "call X instead of Y" and X needs code added → Add code to X FIRST, then change call
+  - Example: If moving code to `removeSession` and `UA_SessionManager_deleteMembers` calls it → Add code to `removeSession` first, then update `UA_SessionManager_deleteMembers`
+
+- **Code movement**: 
+  - If code moves from A to B → Add to B first, then remove from A
+
+- **Resource dependencies**: 
+  - What resources must be cleaned up before what
+  - Example: Subscriptions must be cleaned up before SecureChannel detach
+
+---
+
+## Grep Tool (Optional but Recommended)
+
+**Note**: Grep is optional. The buggy_code and vulnerability description are provided, but use grep when you need more certainty.
+
+**When to use grep:**
+- Verify function names or variable names (prevent typos/encoding issues)
+- Find where a function/variable is defined or how it is used
+- Locate the correct file/line context before writing the fix
+- Need the context of the file/line context to write the fix
+
+**Usage format:**
+```
+<grep_command>grep -rn "pattern" src/</grep_command>
+```
+
+**Examples (adjust pattern/file as needed):**
+- `<grep_command>grep -rn "UA_Session_deleteSubscription" src/</grep_command>`
+- `<grep_command>grep -rn "removeSession" src/server/ua_session_manager.c</grep_command>`
+- `<grep_command>grep -rn "serverSubscriptions" src/</grep_command>`
+
+---
+
+## Response Format
+
+**Required structure:**
+
 <analysis>
-[Step-by-step analysis of repair order]
+[Step-by-step analysis of repair order, including:
+- Why each fix point is needed
+- What dependencies exist between fix points
+- Why the identified order is correct]
 </analysis>
 
 <fix_points>
 1. [First fix point description]
+   - Include: file path, function name (if applicable), line numbers, operation type (add/remove/modify/include)
+   - Example: "Add subscription cleanup code to removeSession function in src/server/ua_session_manager.c (lines 37-42) - this should execute BEFORE UA_Session_detachFromSecureChannel"
+
 2. [Second fix point description]
+   - Same format as above
+
 ...
 </fix_points>
 
@@ -99,7 +170,8 @@ class PromptTemplates:
     @staticmethod
     def get_initial_fix_prompt(buggy_code: str, bug_location: str, 
                                context: Optional[str] = None,
-                               fixed_code: Optional[str] = None) -> str:
+                               fixed_code: Optional[str] = None,
+                               fix_point_description: Optional[str] = None) -> str:
         """
         生成初始修复提示词
         用于为单个位置生成初步修复方案
@@ -110,7 +182,8 @@ class PromptTemplates:
             buggy_code: 该位置的漏洞代码
             bug_location: 位置标识符
             context: 额外上下文信息（例如来自grep的结果）
-            fixed_code: 修复后的代码（用于对比分析）
+            fixed_code: 修复后的代码（用于对比分析，已废弃）
+            fix_point_description: 修复点描述（明确说明需要做什么修复）
             
         Returns:
             格式化后的提示词字符串
@@ -126,6 +199,27 @@ class PromptTemplates:
         
         # Build mandatory requirements section
         mandatory_requirements = []
+        
+        # Fix point description requirement (highest priority)
+        if fix_point_description:
+            mandatory_requirements.append(f"""
+## ⚠️ CRITICAL REQUIREMENT - Fix Point Description:
+**YOU MUST follow this fix point description EXACTLY:**
+
+{fix_point_description}
+
+**Your Task:**
+- Generate the fix code EXACTLY as described in the fix point description above
+- If the description says "add header include", generate ONLY the include directive
+- If the description says "add code to function X", generate ONLY the code for function X
+- If the description says "remove code from function Y", generate ONLY the removal for function Y
+- DO NOT generate fixes for other fix points
+- DO NOT infer additional fixes beyond what is described
+- DO NOT modify code that is not mentioned in the description
+
+**Example**: If the description says "Add subscription header include to ua_session_manager.c (lines 1-10)", 
+you should generate ONLY: `#include "ua_subscription.h"` at the appropriate location.
+""")
         
         # Vulnerability description requirement
         if actual_descriptions:
@@ -234,18 +328,19 @@ class PromptTemplates:
 - Null pointer dereference: accessing through null pointers
 - Resource release order: what must be cleaned up before what
 
-## 🔍 Grep Tool (Optional but recommended when unsure):
+
+**Note**: Grep is optional, but if you are uncertain about a definition, signature, or file/line context, you SHOULD issue a grep command to confirm before writing code. The buggy_code and vulnerability description are provided, but use grep when you need more certainty.
+## Grep Tool (Optional but recommended ):
 Use `<grep_command>grep -rn "pattern" src/</grep_command>` when you need to:
 - Verify function names or variable names (prevent typos/encoding issues)
 - Find where a function/variable is defined or how it is used
 - Locate the correct file/line context before writing the fix
-
 **Examples (adjust pattern/file as needed):**
 - `<grep_command>grep -rn "UA_Session_deleteSubscription" src/</grep_command>`
 - `<grep_command>grep -rn "removeSession" src/server/ua_session_manager.c</grep_command>`
 - `<grep_command>grep -rn "serverSubscriptions" src/</grep_command>`
 
-**Note**: Grep is optional, but if you are uncertain about a definition, signature, or file/line context, you SHOULD issue a grep command to confirm before writing code. The buggy_code and vulnerability description are provided, but use grep when you need more certainty.
+
 
 ## Response Format:
 <thinking>

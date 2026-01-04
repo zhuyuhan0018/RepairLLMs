@@ -1,8 +1,10 @@
 """
-Run test3: Debug mode - Only run repair order analysis
+Run test4: Debug mode - Run repair order analysis and initial fix generation
 - Uses same input as test2_7_4
-- Default: Only analyzes repair order (SKIP_INITIAL_FIX, SKIP_VALIDATION, SKIP_MERGE enabled)
-- Purpose: Debug and test the repair order analysis step
+- Default: Runs repair order analysis and initial fix generation
+- Skips: validation/iteration (by passing ground_truth_fix=None) and merging thinking chains
+- Purpose: Test initial fix generation stage without validation
+- Debug output: Saves detailed debug information to test4/outputs/debugs/
 """
 import json
 import pathlib
@@ -23,7 +25,7 @@ from config import LOGS_DIR
 
 def main():
     # Load test case
-    test_file = pathlib.Path('test/test3/test3.json')
+    test_file = pathlib.Path('test/test4/test4.json')
     if not test_file.exists():
         print(f"Error: Test file not found: {test_file}")
         return 1
@@ -32,11 +34,16 @@ def main():
         test_case = json.load(f)
     
     # Override case_id for output files
-    output_case_id = 'test3'
+    output_case_id = 'test4'
     
     print("="*60)
-    print("Running Test3: Debug Mode - Repair Order Analysis Only")
-    print("(Same input as test2_7_4, but only runs repair order analysis)")
+    print("Running Test4: Debug Mode - Repair Order Analysis + Initial Fix Generation")
+    print("(Same input as test2_7_4)")
+    print("Configuration:")
+    print("  ✓ Repair order analysis: ENABLED")
+    print("  ✓ Initial fix generation: ENABLED")
+    print("  ✗ Validation and iteration: DISABLED")
+    print("  ✗ Merging thinking chains: DISABLED")
     print("="*60)
     print(f"Case ID: {output_case_id}")
     print(f"Bug Location: {test_case['bug_location']}")
@@ -104,23 +111,24 @@ def main():
         # Set environment to skip local model
         os.environ['SKIP_LOCAL'] = '1'
         
-        # Default: Only run repair order analysis (skip other steps)
-        # Can be overridden by environment variables
+        # Default: Run repair order analysis and initial fix generation
+        # Skip validation and merging
         skip_repair_order = os.getenv("SKIP_REPAIR_ORDER", "0") == "1"
-        skip_initial_fix = os.getenv("SKIP_INITIAL_FIX", "1") == "1"  # Default: skip
+        skip_initial_fix = os.getenv("SKIP_INITIAL_FIX", "0") == "1"  # Default: enable
         skip_validation = os.getenv("SKIP_VALIDATION", "1") == "1"  # Default: skip
         skip_merge = os.getenv("SKIP_MERGE", "1") == "1"  # Default: skip
         
         print("\n" + "="*60)
         print("Debug Mode Configuration:")
         print("="*60)
-        print("  Default: Only repair order analysis will run")
-        print("  (SKIP_INITIAL_FIX, SKIP_VALIDATION, SKIP_MERGE enabled by default)")
+        print("  Default: Repair order analysis + Initial fix generation will run")
+        print("  (SKIP_VALIDATION, SKIP_MERGE enabled by default)")
         print("")
         print("  To override, set environment variables:")
-        print("    SKIP_INITIAL_FIX=0  # Enable initial fix generation")
-        print("    SKIP_VALIDATION=0   # Enable validation and iteration")
-        print("    SKIP_MERGE=0        # Enable merging thinking chains")
+        print("    SKIP_REPAIR_ORDER=1  # Skip repair order analysis")
+        print("    SKIP_INITIAL_FIX=1   # Skip initial fix generation")
+        print("    SKIP_VALIDATION=0    # Enable validation and iteration")
+        print("    SKIP_MERGE=0         # Enable merging thinking chains")
         print("="*60)
         
         if skip_repair_order or skip_initial_fix or skip_validation or skip_merge:
@@ -139,8 +147,8 @@ def main():
         
         pipeline = RepairPipeline(codebase_path=codebase_path)
         
-        # Process the test case (only initial chain)
-        print("\nProcessing repair case (repair order analysis only)...")
+        # Process the test case (repair order + initial fix generation)
+        print("\nProcessing repair case (repair order analysis + initial fix generation)...")
         print("="*60)
         overall_start_time = time.time()
         
@@ -154,13 +162,20 @@ def main():
         chain_builder = InitialChainBuilder(aliyun_model, codebase_path)
         
         # Step 1: Analyze repair order (unless skipped)
+        # Model will analyze and generate fix points from JSON file
+        repair_order_duration = 0
+        fix_points = None
+        
         if not skip_repair_order:
+            repair_order_start = time.time()
             fix_points = chain_builder.analyze_repair_order(
                 test_case['buggy_code'],
-                test_case['fixed_code'],
                 detailed_bug_location
             )
+            repair_order_end = time.time()
+            repair_order_duration = repair_order_end - repair_order_start
             print(f"\nIdentified {len(fix_points)} fix points")
+            print(f"[Time] Repair order analysis: {repair_order_duration:.2f} seconds")
             
             # Print fix points for debugging
             print("\n" + "="*60)
@@ -188,7 +203,6 @@ def main():
                 print("No existing fix points found, extracting from bug_location...")
                 fix_points = chain_builder.analyze_repair_order(
                     test_case['buggy_code'],
-                    test_case['fixed_code'],
                     detailed_bug_location
                 )
                 print(f"Extracted {len(fix_points)} fix points from bug_location")
@@ -202,7 +216,14 @@ def main():
             
             thinking_chains = {}
             final_fix_codes = {}  # Store final fix codes for each fix point
+            debug_info = {}  # Store debug information for each fix point
             fix_points_start_time = time.time()
+            fix_points_duration = 0  # Initialize
+            
+            # Create debug output directory
+            debug_output_dir = pathlib.Path('test') / output_case_id / 'outputs' / 'debugs'
+            debug_output_dir.mkdir(parents=True, exist_ok=True)
+            
             for i, fix_point in enumerate(fix_points, 1):
                 # Ensure fix_point is a dict
                 if isinstance(fix_point, str):
@@ -221,15 +242,43 @@ def main():
                     fix_point['location'] = fix_point.get('description', 'Unknown location')
                 
                 print(f"\nProcessing fix point {i}/{len(fix_points)}: {fix_point.get('description', fix_point.get('location', 'N/A'))[:60]}...")
+                # Skip validation: pass None as ground_truth_fix to disable validation
+                # Create debug_info list to collect iteration details
+                fix_point_debug_iterations = []
                 chain, final_fix = chain_builder.build_fix_point_chain(
                     test_case['buggy_code'],
                     test_case['fixed_code'],
                     fix_point,
-                    ground_truth_fix=test_case['fixed_code']  # Pass fixed_code as ground truth for validation
+                    ground_truth_fix=None,  # Pass None to skip validation completely
+                    debug_info=fix_point_debug_iterations  # Collect iteration details
                 )
                 # Use location as key (which is what merge_thinking_chains expects)
                 thinking_chains[fix_point['location']] = chain
                 final_fix_codes[fix_point['location']] = final_fix
+                
+                # Save debug information for this fix point
+                fix_point_id = fix_point.get('id', f'fix_point_{i}')
+                debug_data = {
+                    'fix_point_id': fix_point_id,
+                    'fix_point_description': fix_point.get('description', 'N/A'),
+                    'fix_point_location': fix_point.get('location', 'N/A'),
+                    'thinking_chain': chain,
+                    'final_fix_code': final_fix,
+                    'buggy_code': test_case['buggy_code'],
+                    'fixed_code': test_case['fixed_code'],
+                    'bug_location': detailed_bug_location,
+                    'iterations': fix_point_debug_iterations  # Include all iteration details
+                }
+                debug_info[fix_point['location']] = debug_data
+                
+                # Save individual debug file for this fix point
+                debug_file = debug_output_dir / f"fix_point_{fix_point_id}_debug.json"
+                with debug_file.open('w', encoding='utf-8') as f:
+                    json.dump(debug_data, f, indent=2, ensure_ascii=False)
+                print(f"  ✓ Saved debug info: {debug_file}")
+                print(f"    - Total iterations: {len(fix_point_debug_iterations)}")
+                if fix_point_debug_iterations:
+                    print(f"    - Initial generation (iteration 1) included: ✓")
             
             fix_points_end_time = time.time()
             fix_points_duration = fix_points_end_time - fix_points_start_time
@@ -240,6 +289,8 @@ def main():
             print("="*60)
             thinking_chains = {}
             final_fix_codes = {}
+            debug_info = {}
+            fix_points_duration = 0
         
         # Step 3: Merge thinking chains (unless skipped)
         if not skip_merge and not skip_initial_fix:
@@ -265,10 +316,76 @@ def main():
         
         overall_end_time = time.time()
         overall_duration = overall_end_time - overall_start_time
+        
+        # Detailed time analysis
+        print("\n" + "="*60)
+        print("Detailed Time Analysis:")
+        print("="*60)
+        
+        # Repair order analysis time
+        if not skip_repair_order:
+            print(f"  Repair Order Analysis: {repair_order_duration:.2f} seconds")
+        else:
+            print(f"  Repair Order Analysis: SKIPPED")
+        
+        # Fix points processing time
+        if not skip_initial_fix and 'fix_points_duration' in locals():
+            print(f"  Fix Points Processing: {fix_points_duration:.2f} seconds")
+            if fix_points:
+                print(f"    - Average per fix point: {fix_points_duration / len(fix_points):.2f} seconds")
+                print(f"    - Total fix points processed: {len(fix_points)}")
+                # Calculate API time from debug info
+                total_api_time = 0
+                total_iterations = 0
+                for location, debug_data in debug_info.items():
+                    iterations = debug_data.get('iterations', [])
+                    total_iterations += len(iterations)
+                    for iter_info in iterations:
+                        total_api_time += iter_info.get('api_duration_seconds', 0)
+                if total_iterations > 0:
+                    print(f"    - Total API calls: {total_iterations}")
+                    print(f"    - Total API time: {total_api_time:.2f} seconds")
+                    print(f"    - Average per API call: {total_api_time / total_iterations:.2f} seconds")
+                    print(f"    - Other processing: {fix_points_duration - total_api_time:.2f} seconds")
+        else:
+            print(f"  Fix Points Processing: SKIPPED")
+        
+        # Merge time
+        if not skip_merge and not skip_initial_fix:
+            print(f"  Merging Thinking Chains: Included in fix points processing")
+        else:
+            print(f"  Merging Thinking Chains: SKIPPED (used simple concatenation)")
+        
+        print(f"\n  Total Duration: {overall_duration:.2f} seconds ({overall_duration/60:.2f} minutes)")
+        print(f"  Breakdown:")
+        if not skip_repair_order:
+            print(f"    - Repair Order: {repair_order_duration/overall_duration*100:.1f}%")
+        if not skip_initial_fix and 'fix_points_duration' in locals():
+            print(f"    - Fix Points: {fix_points_duration/overall_duration*100:.1f}%")
+        other_time = overall_duration - repair_order_duration - (fix_points_duration if not skip_initial_fix and 'fix_points_duration' in locals() else 0)
+        print(f"    - Other (setup, I/O, etc.): {other_time/overall_duration*100:.1f}%")
+        
+        print("\n" + "="*60)
+        print("Time Analysis Summary:")
+        print("="*60)
+        print("  Why is it so slow?")
+        print("  1. Model API calls are the bottleneck (~99% of time)")
+        print("     - Each fix point requires 1 API call (initial generation only, no validation)")
+        print("     - API response time: ~270-280 seconds per call")
+        if not skip_initial_fix and fix_points:
+            print(f"     - Total API calls: {len(fix_points)} (one per fix point)")
+            print(f"     - Estimated total API time: ~{len(fix_points) * 275:.0f} seconds")
+        print("  2. Network latency and model processing time")
+        print("     - Large prompts (~5800 chars) take time to process")
+        print("     - Large responses (~2000 chars) take time to generate")
+        print("  3. Sequential processing")
+        print("     - Fix points are processed one by one (not parallelized)")
+        print("     - Each fix point waits for previous one to complete")
+        print("="*60)
+        
         print(f"\n[Summary] Overall processing completed in {overall_duration:.2f} seconds")
         
         # Save results
-        import json as json_lib
         from datetime import datetime
         
         output_data = {
@@ -278,6 +395,7 @@ def main():
             'thinking_chains': thinking_chains,
             'final_fix_codes': final_fix_codes,  # Include final fix codes for each fix point
             'merged_chain': merged_chain,
+            'debug_info': debug_info,  # Include debug information
             'metadata': {
                 'codebase_path': codebase_path,
                 'vulnerability_locations': test_case.get('vulnerability_locations', []),
@@ -287,8 +405,8 @@ def main():
                 'fix_goal': test_case.get('fix_goal'),
                 'original_case_id': test_case['case_id'],
                 'created_at': datetime.now().isoformat(),
-                'debug_mode': 'repair_order_only',
-                'improvements': 'Debug mode: Only runs repair order analysis by default'
+                'debug_mode': 'repair_order_and_initial_fix',
+                'improvements': 'Testing initial fix generation stage (validation skipped)'
             }
         }
         
@@ -297,7 +415,7 @@ def main():
         test_output_dir.mkdir(parents=True, exist_ok=True)
         json_file = test_output_dir / f"{output_case_id}_initial.json"
         with json_file.open('w', encoding='utf-8') as f:
-            json_lib.dump(output_data, f, indent=2, ensure_ascii=False)
+            json.dump(output_data, f, indent=2, ensure_ascii=False)
         print(f"✓ Saved results (JSON): {json_file}")
         
         # Save TXT (using output_case_id) - save to test directory
@@ -307,11 +425,17 @@ def main():
         print(f"✓ Saved results (TXT): {txt_file}")
         
         print("\n" + "="*60)
-        print("Repair order analysis completed!")
+        print("Repair order analysis + Initial fix generation completed!")
         print("="*60)
         print(f"\nOutput files:")
         print(f"  - Results (JSON): {json_file}")
         print(f"  - Results (TXT): {txt_file}")
+        if debug_info:
+            print(f"  - Debug files: {debug_output_dir}")
+            for location, debug_data in debug_info.items():
+                fix_point_id = debug_data.get('fix_point_id', 'unknown')
+                debug_file = debug_output_dir / f"fix_point_{fix_point_id}_debug.json"
+                print(f"    * {debug_file.name}")
         
         if not skip_repair_order and fix_points:
             print("\n" + "="*60)
@@ -331,7 +455,4 @@ def main():
 
 if __name__ == "__main__":
     sys.exit(main())
-
-
-
 

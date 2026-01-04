@@ -26,8 +26,8 @@ class AliyunModel:
             dashscope.base_http_api_url = ALIYUN_API_BASE
             if hasattr(dashscope, "base_websocket_api_url"):
                 dashscope.base_websocket_api_url = ALIYUN_API_BASE
-        # Allow override via env; default to qwen-turbo for latency
-        self.model_name = model_name or os.getenv("ALIYUN_MODEL_NAME", "qwen-turbo")
+        # Allow override via env; default to qwen3-coder-plus for code-specific tasks
+        self.model_name = model_name or os.getenv("ALIYUN_MODEL_NAME", "qwen3-coder-plus")
     
     def generate(self, 
                  prompt: str, 

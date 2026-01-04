@@ -15,8 +15,8 @@ MAX_GREP_ATTEMPTS = 3  # Maximum grep command attempts per iteration
 TEMPERATURE = 0.7
 MAX_TOKENS = 2048
 # Cloud generation cap to reduce latency (runtime knob)
-# Increased from 1024 to 2048 to reduce response truncation risk
-CLOUD_MAX_TOKENS = int(os.getenv("CLOUD_MAX_TOKENS", "2048"))
+# Set to 1200 tokens to prevent response truncation while maintaining reasonable API call time
+CLOUD_MAX_TOKENS = int(os.getenv("CLOUD_MAX_TOKENS", "1200"))
 
 # Perplexity optimization
 PERPLEXITY_THRESHOLD = 3.0  # Threshold for replacing high perplexity content

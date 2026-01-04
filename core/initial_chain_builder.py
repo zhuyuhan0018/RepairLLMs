@@ -27,15 +27,15 @@ class InitialChainBuilder:
         self.codebase_path = codebase_path
         self.grep_tool = GrepTool()
     
-    def analyze_repair_order(self, buggy_code: str, fixed_code: str, 
-                           bug_location: str) -> List[Dict]:
+    def analyze_repair_order(self, buggy_code: str, bug_location: str,
+                           fixed_code: Optional[str] = None) -> List[Dict]:
         """
         Analyze repair order and identify fix points
         
         Args:
             buggy_code: Original buggy code
-            fixed_code: Fixed code
             bug_location: Location of the bug
+            fixed_code: Fixed code (optional, deprecated - not used in repair order analysis)
             
         Returns:
             List of fix point dictionaries
@@ -67,12 +67,14 @@ class InitialChainBuilder:
         print("[Stage] >>> ENTERING: Repair Order Analysis")
         print("=" * 80)
         print("[Stage] Purpose: Analyzing repair order and identifying fix points")
-        print(f"[Stage] Input: buggy_code ({len(buggy_code)} chars), fixed_code ({len(fixed_code)} chars)")
+        print(f"[Stage] Input: buggy_code ({len(buggy_code)} chars)")
+        if fixed_code:
+            print(f"[Stage] Note: fixed_code provided but will NOT be used in repair order analysis")
         stage_start_time = time.time()
         print(f"[Stage] Calling model API for repair order analysis...")
         api_start_time = time.time()
         prompt = PromptTemplates.get_repair_order_analysis_prompt(
-            buggy_code, fixed_code, bug_location
+            buggy_code, bug_location
         )
         
         response = self.aliyun_model.generate(prompt)
@@ -143,7 +145,8 @@ class InitialChainBuilder:
                              buggy_code: str,
                              fixed_code: str,
                              fix_point: Dict,
-                             ground_truth_fix: Optional[str] = None) -> Tuple[str, Optional[str]]:
+                             ground_truth_fix: Optional[str] = None,
+                             debug_info: Optional[List[Dict]] = None) -> Tuple[str, Optional[str]]:
         """
         Build thinking chain for a single fix point
         
@@ -201,9 +204,15 @@ class InitialChainBuilder:
                     print("    " + "-" * 80)
                     iteration_start_time = time.time()
                     # Do NOT pass fixed_code in initial fix prompt - only provide it during validation
+                    # Pass fix_point description to ensure model knows exactly what to fix
+                    prompt_gen_start = time.time()
+                    fix_point_description = fix_point.get('description', '')
                     prompt = PromptTemplates.get_initial_fix_prompt(
-                        buggy_code, fix_point['location'], context, None
+                        buggy_code, fix_point['location'], context, None, fix_point_description
                     )
+                    prompt_gen_end = time.time()
+                    prompt_gen_duration = prompt_gen_end - prompt_gen_start
+                    print(f"    [Time] Prompt generation: {prompt_gen_duration:.3f} seconds")
             else:
                 print(f"    [Stage] >>> ITERATION {iteration + 1}: Reflecting and Improving")
                 print(f"    [Stage] Purpose: Reflecting and improving analysis based on previous thinking")
@@ -212,9 +221,13 @@ class InitialChainBuilder:
                 print("    " + "-" * 80)
                 iteration_start_time = time.time()
                 # Do NOT pass fixed_code in iterative reflection - only provide it during validation
+                prompt_gen_start = time.time()
                 prompt = PromptTemplates.get_iterative_reflection_prompt(
                     thinking_chain, buggy_code, None, None, context if grep_attempts > 0 else None
                 )
+                prompt_gen_end = time.time()
+                prompt_gen_duration = prompt_gen_end - prompt_gen_start
+                print(f"    [Time] Prompt generation: {prompt_gen_duration:.3f} seconds")
             
             print(f"    [Stage] Calling model API...")
             api_start_time = time.time()
@@ -236,7 +249,33 @@ class InitialChainBuilder:
                 print(f"    [Warning] Truncated response may cause parsing issues. Consider increasing max_tokens.")
             
             # Extract thinking and fix from response
+            parse_start = time.time()
             thinking, fix, grep_cmd = self._parse_response(response)
+            parse_end = time.time()
+            parse_duration = parse_end - parse_start
+            print(f"    [Time] Response parsing: {parse_duration:.3f} seconds")
+            
+            # Collect debug information for this iteration
+            if debug_info is not None:
+                iteration_debug = {
+                    'iteration': iteration + 1,
+                    'iteration_type': 'Initial Analysis' if iteration == 0 else 'Reflection',
+                    'prompt': prompt,
+                    'prompt_length': len(prompt),
+                    'response': response,
+                    'response_length': len(response),
+                    'is_truncated': is_truncated,
+                    'thinking': thinking,
+                    'thinking_length': len(thinking) if thinking else 0,
+                    'fix': fix,
+                    'fix_length': len(fix) if fix else 0,
+                    'grep_cmd': grep_cmd,
+                    'context_available': len(context) > 0 if context else False,
+                    'context_length': len(context) if context else 0,
+                    'api_duration_seconds': api_duration,
+                    'timestamp': time.time()
+                }
+                debug_info.append(iteration_debug)
             
             # Debug: Save response if thinking is empty (for debugging)
             if not thinking:
@@ -299,9 +338,13 @@ class InitialChainBuilder:
                     print(f"    [Grep Request] Codebase path: {self.codebase_path}")
                     print(f"    [Grep Request] Full command will be executed in: {self.codebase_path}")
                     print("    " + "-" * 80)
+                    grep_start = time.time()
                     success, grep_results = self.grep_tool.execute_grep(
                         grep_cmd, self.codebase_path
                     )
+                    grep_end = time.time()
+                    grep_duration = grep_end - grep_start
+                    print(f"    [Time] Grep execution: {grep_duration:.3f} seconds")
                     if success:
                         # Log complete grep results for inspection with detailed information
                         print(f"    [Grep Success] Results received ({len(grep_results)} characters)")
@@ -400,6 +443,9 @@ class InitialChainBuilder:
                         print(f"    [Stage] Validation - Fix is INCORRECT, receiving feedback for improvement")
                         print(f"    [Validation Feedback] {validation_hints[:200]}..." if len(validation_hints) > 200 else f"    [Validation Feedback] {validation_hints}")
                         thinking_chain += f"\n\n[Validation Feedback]\n{validation_hints}"
+                        # Save the last generated fix even if validation failed (for analysis)
+                        final_fix_code = fix
+                        print(f"    [Stage] Saving last generated fix code for analysis (validation failed)")
                         # Continue with reflection
                     print(f"    [Stage] Iteration {iteration + 1} - Reflecting based on validation feedback")
                     # Do NOT pass fixed_code in iterative reflection - validation feedback already contains the comparison
@@ -409,59 +455,40 @@ class InitialChainBuilder:
                     iteration += 1
                     continue
             elif fix:
-                # No ground truth, accept the fix
-                # Validate that fix is code format, not text description
-                if self._is_code_format(fix):
-                    # Check fix completeness
-                    is_complete, completeness_issue = self._check_fix_completeness(fix, fixed_code)
-                    if not is_complete:
-                        print(f"    [Warning] Fix completeness check failed: {completeness_issue}")
-                        print(f"    [Warning] Fix may be incomplete - missing parts from fixed_code")
-                        print(f"    [Warning] Continuing to next iteration to request complete fix")
-                        thinking_chain += f"\n\n[Iteration {iteration + 1} - Note: Previous fix was incomplete. Missing: {completeness_issue}]"
-                        no_fix_count += 1
-                        iteration += 1
-                        continue
-                    
-                    # Check logic consistency
-                    is_consistent, consistency_issue = self._check_logic_consistency(thinking, fix)
-                    if not is_consistent:
-                        print(f"    [Warning] Logic consistency check failed: {consistency_issue}")
-                        print(f"    [Warning] Thinking description may contradict fix code")
-                        print(f"    [Warning] Continuing to next iteration to fix logic inconsistency")
-                        thinking_chain += f"\n\n[Iteration {iteration + 1} - Note: Logic inconsistency detected. Issue: {consistency_issue}]"
-                        no_fix_count += 1
-                        iteration += 1
-                        continue
-                    
-                    print(f"    [Stage] No ground truth available, accepting generated fix (code format verified, completeness checked, logic consistent)")
-                    thinking_chain += f"\n\n[Final Fix]\n{fix}"
-                    final_fix_code = fix
-                    break
-                else:
-                    print(f"    [Warning] Fix detected but appears to be text description, not code format")
-                    print(f"    [Warning] Fix content preview: {fix[:200]}...")
-                    print(f"    [Warning] Continuing to next iteration to request code format fix")
-                    thinking_chain += f"\n\n[Iteration {iteration + 1} - Note: Previous fix was text description, need code format]"
-                    no_fix_count += 1  # Count this as no valid fix
-                    iteration += 1
-                    continue
+                # No ground truth, skip all validation and checks - accept fix immediately
+                # This is for debugging mode where we only want initial generation
+                print(f"    [Stage] No ground truth available - skipping all validation and checks")
+                print(f"    [Stage] Accepting generated fix immediately (no iteration)")
+                thinking_chain += f"\n\n[Initial Fix Generated - No Validation]\n{fix}"
+                final_fix_code = fix
+                break
             
             # Early stop if no fix after multiple iterations
             if no_fix_count >= 2 and iteration > 0:
                 print(f"    [Warning] Stopping early: No fix code generated after {no_fix_count} consecutive iterations")
                 thinking_chain += f"\n\n[Stopped early: Model failed to generate fix code after {no_fix_count} iterations]"
+                # Save last fix if available (even if validation failed)
+                if fix and not final_fix_code:
+                    final_fix_code = fix
+                    print(f"    [Stage] Saving last generated fix code (early stop)")
                 break
             
             iteration_end_time = time.time()
             iteration_duration = iteration_end_time - iteration_start_time
-            print(f"    [Stage] Iteration {iteration + 1} completed in {iteration_duration:.2f} seconds, continuing to next iteration")
+            print(f"    [Stage] Iteration {iteration + 1} completed in {iteration_duration:.2f} seconds")
+            print(f"    [Time] Iteration breakdown: API={api_duration:.2f}s, Parse={parse_duration:.3f}s, Other={iteration_duration - api_duration - parse_duration:.3f}s")
+            if iteration < MAX_ITERATIONS - 1:
+                print(f"    [Stage] Continuing to next iteration...")
             iteration += 1
         
         chain_building_end_time = time.time()
         chain_building_duration = chain_building_end_time - chain_building_start_time
         if iteration >= MAX_ITERATIONS:
             print(f"    [Stage] Max iterations ({MAX_ITERATIONS}) reached, finishing chain building")
+            # If we reached max iterations and have a fix, save it even if validation failed
+            if fix and not final_fix_code:
+                final_fix_code = fix
+                print(f"    [Stage] Saving last generated fix code (max iterations reached)")
         else:
             print(f"    [Stage] Chain building completed after {iteration + 1} iteration(s)")
         
@@ -531,6 +558,8 @@ class InitialChainBuilder:
         fix_match = re.search(r'<fix>(.*?)</fix>', response, re.DOTALL)
         if fix_match:
             fix = fix_match.group(1).strip()
+            # Normalize fix format: convert git diff format to simple diff format
+            fix = self._normalize_fix_format(fix)
         
         # Extract grep command
         grep_match = re.search(r'<grep_command>(.*?)</grep_command>', response, re.DOTALL)
@@ -541,6 +570,47 @@ class InitialChainBuilder:
             grep_cmd = self.grep_tool.extract_grep_command(response)
         
         return thinking, fix, grep_cmd
+    
+    def _normalize_fix_format(self, fix: str) -> str:
+        """
+        Normalize fix format: convert git diff format to simple diff format
+        
+        Args:
+            fix: Fix code in any format (git diff or simple diff)
+            
+        Returns:
+            Normalized fix code in simple diff format (with - and + prefixes)
+        """
+        if not fix:
+            return fix
+        
+        # Check if it's git diff format
+        if fix.strip().startswith('diff --git'):
+            # Extract the actual diff content (lines starting with - or +)
+            lines = fix.split('\n')
+            normalized_lines = []
+            in_diff_block = False
+            
+            for line in lines:
+                # Skip git diff headers
+                if line.startswith('diff --git') or line.startswith('---') or line.startswith('+++') or line.startswith('@@'):
+                    continue
+                # Start collecting from the first - or + line
+                if line.startswith('-') or line.startswith('+'):
+                    in_diff_block = True
+                    normalized_lines.append(line)
+                elif in_diff_block:
+                    # Continue collecting context lines (no prefix) until we hit another header
+                    if not line.startswith('diff') and not line.startswith('---') and not line.startswith('+++'):
+                        normalized_lines.append(line)
+                    else:
+                        break
+            
+            if normalized_lines:
+                return '\n'.join(normalized_lines)
+        
+        # If already in simple diff format, return as-is
+        return fix
     
     def _is_code_format(self, fix: str) -> bool:
         """

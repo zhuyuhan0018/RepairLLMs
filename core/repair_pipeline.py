@@ -74,7 +74,7 @@ class RepairPipeline:
         # Step 1: Analyze repair order
         print("Step 1: Analyzing repair order...")
         fix_points = self.chain_builder.analyze_repair_order(
-            buggy_code, fixed_code, bug_location
+            buggy_code, bug_location
         )
         print(f"Identified {len(fix_points)} fix points")
         
