@@ -129,7 +129,8 @@ def main():
         print(f"  - Starting API call (this may take 10-60 seconds)...", flush=True)
         fix_points = chain_builder.analyze_repair_order(
             test_case['buggy_code'],
-            detailed_bug_location
+            detailed_bug_location,
+            fix_points=test_case.get('fix_points')
         )
         print(f"  - analyze_repair_order returned {len(fix_points)} fix points", flush=True)
         repair_order_end = time.time()

@@ -1,0 +1,62 @@
+============================================================
+Test8: Repair Order Analysis Only
+============================================================
+Case ID: test8
+Original Case ID: test6
+Created at: 2026-01-04T20:21:40.585059
+Total Duration: 276.37 seconds
+
+============================================================
+Repair Order Analysis:
+------------------------------------------------------------
+Duration: 276.37 seconds
+Fix Points Identified: 4
+JSON Fix Points (for reference): 4
+Identification Rate: 4/4 = 100.0%
+------------------------------------------------------------
+
+Fix Point 1:
+  Location: src/server/ua_session_manager.c:None (lines 11-16)
+  Description: src/server/ua_session_manager.c:header include (lines 11-16)
+
+Fix Point 2:
+  Location: src/server/ua_session_manager.c:removeSession (lines 37-42)
+  Description: src/server/ua_session_manager.c:removeSession (lines 37-42)
+
+Fix Point 3:
+  Location: src/server/ua_session.c:UA_Session_deleteMembersCleanup (lines 36-54)
+  Description: src/server/ua_session.c:UA_Session_deleteMembersCleanup (lines 36-54)
+
+Fix Point 4:
+  Location: src/server/ua_session_manager.c:UA_SessionManager_deleteMembers (lines 20-61)
+  Description: src/server/ua_session_manager.c:UA_SessionManager_deleteMembers (lines 20-61)
+
+============================================================
+Comparison: Model vs JSON
+============================================================
+Model identified: 4 fix point(s)
+JSON contains: 4 fix point(s)
+Identification Rate: 100.0%
+
+JSON Fix Points (for reference):
+------------------------------------------------------------
+
+Fix Point 1:
+  File: src/server/ua_session.c
+  Function: UA_Session_deleteMembersCleanup
+  Lines: 36-54
+
+Fix Point 2:
+  File: src/server/ua_session_manager.c
+  Function: None
+  Lines: 11-16
+
+Fix Point 3:
+  File: src/server/ua_session_manager.c
+  Function: removeSession
+  Lines: 37-42
+
+Fix Point 4:
+  File: src/server/ua_session_manager.c
+  Function: UA_SessionManager_deleteMembers
+  Lines: 20-61

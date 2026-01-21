@@ -1,0 +1,68 @@
+============================================================
+Test9: Repair Order Analysis + All Fix Points Initial Generation
+============================================================
+Case ID: test9
+Original Case ID: test6
+Created at: 2026-01-19T17:28:39.683625
+Total Duration: 1422.25 seconds
+
+============================================================
+Repair Order Analysis:
+------------------------------------------------------------
+Duration: 283.18 seconds
+Fix Points Identified: 4
+JSON Fix Points: 4
+Identification Rate: 4/4 = 100.0%
+------------------------------------------------------------
+
+Fix Point 1:
+  Location: src/server/ua_session_manager.c:None (lines 11-16)
+  Description: src/server/ua_session_manager.c:header include (lines 11-16)
+
+Fix Point 2:
+  Location: src/server/ua_session_manager.c:removeSession (lines 37-42)
+  Description: src/server/ua_session_manager.c:removeSession (lines 37-42)
+
+Fix Point 3:
+  Location: src/server/ua_session_manager.c:UA_SessionManager_deleteMembers (lines 20-61)
+  Description: src/server/ua_session_manager.c:UA_SessionManager_deleteMembers (lines 20-61)
+
+Fix Point 4:
+  Location: src/server/ua_session.c:UA_Session_deleteMembersCleanup (lines 36-54)
+  Description: src/server/ua_session.c:UA_Session_deleteMembersCleanup (lines 36-54)
+
+============================================================
+Initial Fix Generation:
+------------------------------------------------------------
+Total Duration: 1139.07 seconds
+Average per Fix Point: 284.77 seconds
+Fix Points Processed: 4
+------------------------------------------------------------
+
+Fix Point 1 (1):
+  Location: src/server/ua_session_manager.c:None (lines 11-16)
+  Duration: 278.73 seconds
+  Thinking Chain Length: 1919 chars
+  Fix Code Length: 96 chars
+  Fix Code Generated: Yes
+
+Fix Point 2 (2):
+  Location: src/server/ua_session_manager.c:removeSession (lines 37-42)
+  Duration: 282.28 seconds
+  Thinking Chain Length: 2099 chars
+  Fix Code Length: 1058 chars
+  Fix Code Generated: Yes
+
+Fix Point 3 (3):
+  Location: src/server/ua_session_manager.c:UA_SessionManager_deleteMembers (lines 20-61)
+  Duration: 290.25 seconds
+  Thinking Chain Length: 5185 chars
+  Fix Code Length: 823 chars
+  Fix Code Generated: Yes
+
+Fix Point 4 (4):
+  Location: src/server/ua_session.c:UA_Session_deleteMembersCleanup (lines 36-54)
+  Duration: 287.80 seconds
+  Thinking Chain Length: 5052 chars
+  Fix Code Length: 2663 chars
+  Fix Code Generated: Yes

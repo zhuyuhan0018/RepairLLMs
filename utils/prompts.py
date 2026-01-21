@@ -3,7 +3,7 @@
 Prompt templates for the code repair system
 """
 import re
-from typing import Dict, Optional
+from typing import Dict, Optional, List
 
 
 class PromptTemplates:
@@ -14,7 +14,8 @@ class PromptTemplates:
     """
     
     @staticmethod
-    def get_repair_order_analysis_prompt(buggy_code: str, bug_location: str) -> str:
+    def get_repair_order_analysis_prompt(buggy_code: str, bug_location: str, 
+                                        fix_points: Optional[List[Dict]] = None) -> str:
         """
         生成修复顺序分析提示词
         用于分析需要修复的位置及其逻辑顺序（哪些函数/文件需要先修复）
@@ -24,28 +25,144 @@ class PromptTemplates:
         Args:
             buggy_code: 原始有漏洞的代码
             bug_location: 漏洞位置（文件/函数），可能包含详细的文件、函数和行号信息
+            fix_points: 修复点列表（可选），格式为 [{"id": 1, "file": "...", "function": "...", "line_start": X, "line_end": Y}, ...]
+                       如果提供，将直接从 JSON 读取；否则从 bug_location 中的 "Vulnerability Details" 提取
             
         Returns:
             格式化后的提示词字符串
         """
-        # Extract vulnerability context (simplified)
-        vulnerability_context = ""
-        if "Vulnerability Details:" in bug_location or "Description:" in bug_location:
-            vulnerability_context = """
-## Key Understanding:
-- "should be added before [X]" → Move code to execute BEFORE X
-- "removed from..." → Code is in wrong location/timing
-- Focus on EXECUTION ORDER and resource dependencies
-- Each vulnerability location description = likely a separate fix point
+        # Build fix points section from fix_points parameter (preferred) or bug_location (fallback)
+        fix_points_section = ""
+        
+        if fix_points:
+            # Build "Vulnerability Details" format from fix_points JSON
+            vuln_lines = []
+            for fp in fix_points:
+                file_path = fp.get('file', '')
+                function_name = fp.get('function')
+                if function_name is None:
+                    function_name = 'None'
+                line_start = fp.get('line_start', '')
+                line_end = fp.get('line_end', '')
+                vuln_lines.append(f"  {fp.get('id', len(vuln_lines) + 1)}. {file_path}:{function_name} (lines {line_start}-{line_end})")
+            
+            vuln_section = "\n".join(vuln_lines)
+            fix_points_section = f"""
+## Fix Points from JSON Input
+
+The fix points are provided from the JSON `fix_points` array. **These correspond to the JSON format:**
+- Each fix point has: `id`, `file`, `function` (or `null` for header includes), `line_start`, `line_end`
+- Format below: `id. file_path:function_name (lines line_start-line_end)`
+- If `function` is `null` in JSON, it appears as `None` below
+
+**Your task is to:**
+1. **Extract all fix points** from the list below
+2. **Merge fix points** that are in the same file AND same function (see merging rules)
+3. **Sort the merged fix points** according to the repair order rules (THIS IS THE CORE TASK)
+
+**Fix Points from JSON:**
+{vuln_section}
+
+**Merging Rules (CRITICAL):**
+- **Merge ONLY if**: Two or more fix points have the **same file path AND same function name**
+  - Same file + same function → Merge into ONE fix point
+  - Same file + `function: null` (both) → Merge into ONE fix point
+- **Merged line range**: Use the combined range (min line_start to max line_end)
+- **Do NOT merge if**:
+  - Different files → Keep separate
+  - Different functions → Keep separate
+  - One has function name, one has `null` → Keep separate
+
+**Merging Examples:**
+- ✅ Merge: `file.c:funcA (lines 10-20)` + `file.c:funcA (lines 25-30)` → `file.c:funcA (lines 10-30)`
+- ✅ Merge: `file.c:None (lines 5-10)` + `file.c:None (lines 12-15)` → `file.c:None (lines 5-15)`
+- ❌ Do NOT merge: `file.c:funcA (lines 10-20)` + `file.c:funcB (lines 25-30)` → Keep as 2 separate fix points
+- ❌ Do NOT merge: `file.c:funcA (lines 10-20)` + `file.c:None (lines 5-10)` → Keep as 2 separate fix points
+
+---
+"""
+        elif "Vulnerability Details:" in bug_location:
+            # Fallback: Extract from bug_location (for backward compatibility)
+            vuln_section = bug_location.split("Vulnerability Details:")[1]
+            fix_points_section = f"""
+## Fix Points from JSON Input
+
+The fix points are provided in the "Vulnerability Details" section below. **These correspond to the JSON `fix_points` array format:**
+- Each fix point has: `id`, `file`, `function` (or `null` for header includes), `line_start`, `line_end`
+- Format in "Vulnerability Details": `id. file_path:function_name (lines line_start-line_end)`
+- If `function` is `null` in JSON, it appears as `None` in "Vulnerability Details"
+
+**Your task is to:**
+1. **Extract all fix points** from "Vulnerability Details" below
+2. **Merge fix points** that are in the same file AND same function (see merging rules)
+3. **Sort the merged fix points** according to the repair order rules (THIS IS THE CORE TASK)
+
+**Fix Points from "Vulnerability Details":**
+{vuln_section.strip()}
+
+**Merging Rules (CRITICAL):**
+- **Merge ONLY if**: Two or more fix points have the **same file path AND same function name**
+  - Same file + same function → Merge into ONE fix point
+  - Same file + `function: null` (both) → Merge into ONE fix point
+- **Merged line range**: Use the combined range (min line_start to max line_end)
+- **Do NOT merge if**:
+  - Different files → Keep separate
+  - Different functions → Keep separate
+  - One has function name, one has `null` → Keep separate
+
+**Merging Examples:**
+- ✅ Merge: `file.c:funcA (lines 10-20)` + `file.c:funcA (lines 25-30)` → `file.c:funcA (lines 10-30)`
+- ✅ Merge: `file.c:None (lines 5-10)` + `file.c:None (lines 12-15)` → `file.c:None (lines 5-15)`
+- ❌ Do NOT merge: `file.c:funcA (lines 10-20)` + `file.c:funcB (lines 25-30)` → Keep as 2 separate fix points
+- ❌ Do NOT merge: `file.c:funcA (lines 10-20)` + `file.c:None (lines 5-10)` → Keep as 2 separate fix points
+
+---
 """
         
-        return f"""Analyze repair order for a MEMORY ACCESS vulnerability. Identify fix points and their logical order.
+        return f"""Analyze repair order for a MEMORY ACCESS vulnerability. **SORTING IS THE CORE TASK** - you must sort the provided fix points in the correct logical order according to repair order rules.
 
-{vulnerability_context}
+---
+
+## ⚠️ CRITICAL - Sorting Requirement
+
+**YOU MUST SORT THE FIX POINTS - DO NOT OUTPUT THEM IN THE ORIGINAL JSON ORDER**
+
+## ⚠️ CRITICAL - Output Format (NON-NEGOTIABLE)
+
+**You MUST output ONLY a `<fix_points>` block.**
+
+- Your response MUST contain exactly one `<fix_points>...</fix_points>` section
+- Do NOT output `<thinking>` or any other tags
+- Do NOT output free-form analysis text
+- **Responses without `<fix_points>` will be treated as INVALID**
+
+The fix points in the JSON input are provided in an arbitrary order (by `id`). **Your primary task is to sort them according to the repair order rules below.**
+
+**Example of correct sorting:**
+- If JSON provides: [Remove code, Header include, Add code, Call change]
+- Correct sorted order: [Header include, Add code, Call change, Remove code]
+- **Reason**: Header includes must come first, then add code before remove, then call changes, then remove code last
+
+**You MUST:**
+1. Extract all fix points from the JSON input
+2. Merge fix points in the same file + same function (if any)
+3. **Sort the merged fix points according to repair order rules** (THIS IS THE CORE TASK)
+4. Output the sorted list in `<fix_points>` section (and NOTHING ELSE)
+
+**You MUST NOT:**
+- Output fix points in the original JSON order
+- Skip the sorting step
+- Ignore the repair order rules
 
 ---
 
 ## Input Information
+
+The input follows this JSON structure:
+- **bug_location**: Contains file paths, vulnerability type, root cause, fix goal
+- **buggy_code**: The vulnerable code snippets from affected files
+- **fix_points** (in JSON): Array of fix points with `id`, `file`, `function` (or `null`), `line_start`, `line_end`
+  - The fix points are listed below in JSON order (by `id`), but you MUST sort them
 
 ### Bug Location:
 {bug_location}
@@ -55,17 +172,64 @@ class PromptTemplates:
 {buggy_code}
 ```
 
----
-
+---{fix_points_section}
 ## Analysis Task
 
-1. **How many fix points?** 
-   - Each vulnerability location = one fix point
-   - Include: header includes, code additions, code removals, call relationship changes
+**Task 1: Merge fix points (if needed)**
+- Review all fix points from the JSON input
+- **Merge fix points** that are in the same file AND same function (or both have `function: null`)
+- Merged fix points should cover the combined line range
+- **Do NOT merge** fix points from different files or different functions
 
-2. **What is the repair order?** 
-   - Consider dependencies between fix points
-   - Follow the repair order rules below
+**Task 2: Sort merged fix points (CORE TASK)**
+- **This is the most important task**
+- Consider dependencies between fix points
+- Follow the repair order rules below STRICTLY
+- Ensure the order respects all dependencies
+- **DO NOT output in the original JSON order**
+
+---
+
+## Key Understanding
+
+- "should be added before [X]" → Code must execute BEFORE X
+- "removed from..." → Code is in wrong location/timing
+- Focus on EXECUTION ORDER and resource dependencies
+- Each vulnerability location = a separate fix point
+- **Call relationship changes are independent**: Even if you add code to function B, changing function A to call B is still a separate fix point
+
+---
+
+## Repair Order Rules (MUST follow in this EXACT order)
+
+**These rules define the CORRECT order. You MUST sort fix points according to these rules:**
+
+1. **Header includes first** (Priority 1 - HIGHEST)
+   - Add #include directives before using types/functions from other files
+   - **Example**: If a fix point is `file.c:None (lines 11-16)` and it's a header include, it MUST be first
+
+2. **Add code to target function** (Priority 2)
+   - If you need to add code to a function (e.g., add cleanup code to `target_function`), do this BEFORE changing call relationships
+   - **Example**: Adding code to `target_function` must come before changing `caller_function` to call `target_function`
+
+3. **Change call relationships** (Priority 3)
+   - After the target function has the necessary code, change the call relationship
+   - **This is a SEPARATE fix point** from adding code to the target function
+   - **Example**: Changing `caller_function` to call `target_function` instead of directly calling `old_function`
+
+4. **Remove old code** (Priority 4 - LAST)
+   - Remove old code LAST, after new code is in place and calls are updated
+   - **Example**: Removing cleanup code from `old_function` must be LAST
+
+**Dependency principles:**
+- Header dependencies: Include headers before using their types/functions
+- Function dependencies: Add code to target function before changing call to it (but these are TWO separate fix points)
+- Resource dependencies: Clean up child resources before parent resources
+
+**Sorting Example (based on typical use-after-free fix):**
+- **JSON order** (by id): [Remove code (id=1), Header include (id=2), Add code (id=3), Call change (id=4)]
+- **Correct sorted order**: [Header include (id=2), Add code (id=3), Call change (id=4), Remove code (id=1)]
+- **Why**: Headers first, then add code before remove, then change calls, then remove old code last
 
 ---
 
@@ -73,95 +237,73 @@ class PromptTemplates:
 
 - **Memory safety**: use-after-free, buffer overflow, null pointer
 - **Resource release order**: what must be cleaned up before what
-- **Dependencies**: what must be done before what
 - **Code movement**: why code is moved from one location to another
-
----
-
-## Repair Order Rules (MUST follow in this order)
-
-1. **Header includes first**: 
-   - If a type/function is defined in a file which this file does not include, add the include directive first
-   - Example: If code uses `UA_Subscription` but file doesn't include `ua_subscription.h`, add `#include "ua_subscription.h"` first
-
-2. **Ensure target function is ready**: 
-   - If call relationship change involves calling a new/modified function, ensure that function has necessary code BEFORE changing the call
-
-3. **Add before remove**: 
-   - Add code to new location before removing from old location
-   - **MUST add first** - this is critical for correctness
-
-4. **Call relationship changes**: 
-   - After target function is ready, change call relationship
-   - Example: Change `UA_Session_deleteMembersCleanup(...)` to `removeSession(...)`
-
-5. **Code removal**: 
-   - Remove old code last, after new code is in place and calls are updated
-
----
-
-## Dependency Analysis Guidelines
-
-- **Header dependencies**: 
-  - If code uses types/functions from another file → Include that header FIRST
-  - Example: `If A type is defined in a file which this file does not include, you should consider include this file first.`
-
-- **Function dependencies**: 
-  - If "call X instead of Y" and X needs code added → Add code to X FIRST, then change call
-  - Example: If moving code to `removeSession` and `UA_SessionManager_deleteMembers` calls it → Add code to `removeSession` first, then update `UA_SessionManager_deleteMembers`
-
-- **Code movement**: 
-  - If code moves from A to B → Add to B first, then remove from A
-
-- **Resource dependencies**: 
-  - What resources must be cleaned up before what
-  - Example: Subscriptions must be cleaned up before SecureChannel detach
 
 ---
 
 ## Grep Tool (Optional but Recommended)
 
-**Note**: Grep is optional. The buggy_code and vulnerability description are provided, but use grep when you need more certainty.
+**Important**: You should actively decide whether to use grep tools. The buggy_code and vulnerability description are provided, but if you need more certainty about function names, variable names, definitions, or context, you SHOULD use grep.
 
 **When to use grep:**
 - Verify function names or variable names (prevent typos/encoding issues)
 - Find where a function/variable is defined or how it is used
 - Locate the correct file/line context before writing the fix
 - Need the context of the file/line context to write the fix
+- Uncertain about the exact signature or usage of a function/variable
+
+**Grep result format:**
+- When grep is executed, it returns the matching line PLUS 3 lines before and after for context
+- This gives you a complete view of the code around the match
+- Example: If grep finds a match at line 50, you'll see lines 47-53 (3 lines before, the match, 3 lines after)
 
 **Usage format:**
 ```
 <grep_command>grep -rn "pattern" src/</grep_command>
 ```
 
-**Examples (adjust pattern/file as needed):**
-- `<grep_command>grep -rn "UA_Session_deleteSubscription" src/</grep_command>`
-- `<grep_command>grep -rn "removeSession" src/server/ua_session_manager.c</grep_command>`
-- `<grep_command>grep -rn "serverSubscriptions" src/</grep_command>`
+**How to use:**
+1. In your `<thinking>` section, if you need more information, issue a grep command
+2. The system will execute grep and return results with context
+3. Use the grep results to inform your analysis
+4. Reference the grep results in your analysis: "As shown in the grep results at line X-Y in file.c..."
+
+**Example grep commands (adjust pattern/file as needed):**
+- `<grep_command>grep -rn "function_name" src/</grep_command>`
+- `<grep_command>grep -rn "variable_name" src/path/to/file.c</grep_command>`
+- `<grep_command>grep -rn "type_name" src/</grep_command>`
 
 ---
 
 ## Response Format
 
-**Required structure:**
-
-<analysis>
-[Step-by-step analysis of repair order, including:
-- Why each fix point is needed
-- What dependencies exist between fix points
-- Why the identified order is correct]
-</analysis>
-
 <fix_points>
-1. [First fix point description]
-   - Include: file path, function name (if applicable), line numbers, operation type (add/remove/modify/include)
-   - Example: "Add subscription cleanup code to removeSession function in src/server/ua_session_manager.c (lines 37-42) - this should execute BEFORE UA_Session_detachFromSecureChannel"
+1. file_path:function_name (lines line_start-line_end)
+   - Use exact format: "file_path:function_name (lines line_start-line_end)"
+   - For header includes (function is null): "file_path:None (lines line_start-line_end)"
+   - Examples:
+     * "src/module/file.c:None (lines 5-10)" - header include (function is null)
+     * "src/module/file.c:target_function (lines 20-30)" - function fix
+     * "src/module/file.c:old_function (lines 40-50)" - function fix
+     * "src/module/file.c:caller_function (lines 60-80)" - function fix
 
-2. [Second fix point description]
-   - Same format as above
+2. file_path:function_name (lines line_start-line_end)
+
+3. file_path:function_name (lines line_start-line_end)
+
+4. file_path:function_name (lines line_start-line_end)
 
 ...
+[List ALL fix points after merging, in the CORRECT REPAIR ORDER (sorted according to repair order rules). Use the exact format above. Do not skip any. DO NOT output in the original JSON order.]
 </fix_points>
+
+**IMPORTANT REMINDERS:**
+- Output ONLY `<fix_points>` (no extra text)
+- **Merge same file + same function**: If two fix points are in the same file AND same function (or both have `function: null`), merge them into one
+- **Do NOT merge different files or functions**: Only merge fix points that are in the same file AND same function
+- **Sort according to repair order rules**: Follow the repair order rules STRICTLY - this is the core task
+- **DO NOT output in original JSON order**: The JSON order (by `id`) is arbitrary - you MUST sort according to repair order rules
+- **Include all fix points**: After merging, include all fix points from the JSON input in your sorted list
 
 """
 
@@ -171,7 +313,9 @@ class PromptTemplates:
     def get_initial_fix_prompt(buggy_code: str, bug_location: str, 
                                context: Optional[str] = None,
                                fixed_code: Optional[str] = None,
-                               fix_point_description: Optional[str] = None) -> str:
+                               fix_point_description: Optional[str] = None,
+                               all_fix_points: Optional[List[Dict]] = None,
+                               current_fix_point_index: Optional[int] = None) -> str:
         """
         生成初始修复提示词
         用于为单个位置生成初步修复方案
@@ -184,26 +328,68 @@ class PromptTemplates:
             context: 额外上下文信息（例如来自grep的结果）
             fixed_code: 修复后的代码（用于对比分析，已废弃）
             fix_point_description: 修复点描述（明确说明需要做什么修复）
+            all_fix_points: 所有修复点的排序列表（来自repair order analysis）
+            current_fix_point_index: 当前修复点在排序列表中的索引（0-based）
             
         Returns:
             格式化后的提示词字符串
         """
-        # Extract vulnerability descriptions
-        actual_descriptions = []
-        if "Vulnerability Details:" in bug_location:
-            vuln_section = bug_location.split("Vulnerability Details:")[1] if "Vulnerability Details:" in bug_location else ""
-            if vuln_section:
-                desc_pattern = r'Description:\s+(.+?)(?=\n\s*\d+\.|$)'
-                matches = re.findall(desc_pattern, vuln_section, re.DOTALL)
-                actual_descriptions = [m.strip() for m in matches]
+        # Build context sections (grep results)
+        context_section = ""
+        if context:
+            context_section = f"""
+### Grep Results:
+```
+{context}
+```
+"""
         
-        # Build mandatory requirements section
-        mandatory_requirements = []
+        # Build repair order context section
+        repair_order_section = ""
+        if all_fix_points and current_fix_point_index is not None:
+            total_fix_points = len(all_fix_points)
+            current_position = current_fix_point_index + 1
+            repair_order_section = f"""
+---
+
+## ⚠️ CRITICAL - Repair Order Context
+
+**You are processing Fix Point {current_position} of {total_fix_points} in the repair sequence.**
+
+**The repair order has been determined by repair order analysis. You MUST follow this order:**
+
+"""
+            for i, fp in enumerate(all_fix_points):
+                fp_num = i + 1
+                fp_location = fp.get('location', 'N/A')
+                fp_desc = fp.get('description', 'N/A')
+                if i == current_fix_point_index:
+                    repair_order_section += f"**→ Fix Point {fp_num} (CURRENT): {fp_location}**\n"
+                    repair_order_section += f"   Description: {fp_desc}\n"
+                    repair_order_section += f"   **YOU ARE HERE - Generate fix for THIS fix point only**\n"
+                else:
+                    repair_order_section += f"- Fix Point {fp_num}: {fp_location}\n"
+                    repair_order_section += f"  Description: {fp_desc}\n"
+            
+            repair_order_section += f"""
+**Important:**
+- Fix points are processed in the order shown above (determined by repair order analysis)
+- You are currently at Fix Point {current_position}
+- DO NOT generate fixes for other fix points (Fix Points {', '.join(str(i+1) for i in range(total_fix_points) if i != current_fix_point_index)})
+- Focus ONLY on the current fix point
+- The order ensures dependencies are respected (e.g., headers before code, add before remove)
+
+---
+"""
         
-        # Fix point description requirement (highest priority)
+        # Build fix point description section
+        fix_point_section = ""
         if fix_point_description:
-            mandatory_requirements.append(f"""
-## ⚠️ CRITICAL REQUIREMENT - Fix Point Description:
+            fix_point_section = f"""
+---
+
+## ⚠️ CRITICAL - Fix Point Description
+
 **YOU MUST follow this fix point description EXACTLY:**
 
 {fix_point_description}
@@ -217,137 +403,144 @@ class PromptTemplates:
 - DO NOT infer additional fixes beyond what is described
 - DO NOT modify code that is not mentioned in the description
 
-**Example**: If the description says "Add subscription header include to ua_session_manager.c (lines 1-10)", 
-you should generate ONLY: `#include "ua_subscription.h"` at the appropriate location.
-""")
-        
-        # Vulnerability description requirement
-        if actual_descriptions:
-            desc_list = "\n".join([f"- '{desc}'" for desc in actual_descriptions])
-            mandatory_requirements.append(f"""
-## ⚠️ CRITICAL REQUIREMENT:
-**YOU MUST explicitly quote ONE of these vulnerability descriptions:**
-{desc_list}
 
-**Example**: "As the vulnerability description states: 'Subscription cleanup should be added before detaching from SecureChannel'."
-**DO NOT quote the prompt text. ONLY quote from the descriptions above.**
-""")
-        elif "Vulnerability Details:" in bug_location or "Description:" in bug_location:
-            mandatory_requirements.append("""
-## ⚠️ CRITICAL REQUIREMENT:
-**YOU MUST explicitly quote the vulnerability description from "Vulnerability Details" section:**
-- Quote the EXACT description text
-- Use EXACT terms from the description
-- Explain what it means: "This means [X] must happen BEFORE [Y]"
-""")
-        
-        # Code analysis requirement (NO fixed_code provided - analyze based on vulnerability description)
-        mandatory_requirements.append("""
-## ⚠️ CRITICAL REQUIREMENT:
-**YOU MUST analyze the buggy code and identify what needs to be fixed:**
-- Say: "In the buggy code, I see [specific code] at [location]"
-- Analyze: "This code should be [moved/removed/added] because [reason based on vulnerability description]"
-- Identify: What should be REMOVED (-), ADDED (+), or MOVED
-- **Note**: You do NOT have access to the correct fix code. You must reason about what the fix should be based on the vulnerability description.
-""")
-        
-        # Grep results requirement
-        if context:
-            mandatory_requirements.append("""
-## 📋 Optional - If you use grep results:
-**If you reference grep results, use ACTUAL information:**
-- Use EXACT line numbers from grep results
-- Use EXACT file names from grep results
-- Say: "As shown in the grep results at line [LINE] in [FILE]..."
-**DO NOT make up line numbers or file names.**
-""")
-        
-        mandatory_section = "\n".join(mandatory_requirements) if mandatory_requirements else ""
+---
+"""
         
         # Build example code separately to avoid f-string issues with ->
-        example_code = """Example:
--    UA_Subscription *sub, *tempsub;
--    LIST_FOREACH_SAFE(sub, &session->serverSubscriptions, listEntry, tempsub) {
--        UA_Session_deleteSubscription(server, session, sub->subscriptionId);
--    }
+        # Use unrelated C/C++ example to prevent model from copying the example
+        # This example is about file operations, completely unrelated to the test case
+        example_code = """Example diff format (for reference only, NOT related to your task):
+-    FILE *fp = fopen(filename, "r");
+-    char buffer[256];
+-    fgets(buffer, sizeof(buffer), fp);
+-    process_buffer(buffer);
+-    fclose(fp);
 +
-+    /* Remove the Subscriptions */
-+#ifdef UA_ENABLE_SUBSCRIPTIONS
-+    UA_Subscription *sub, *tempsub;
-+    LIST_FOREACH_SAFE(sub, &sentry->session.serverSubscriptions, listEntry, tempsub) {
-+        UA_Session_deleteSubscription(sm->server, &sentry->session, sub->subscriptionId);
++    FILE *fp = fopen(filename, "r");
++    if (fp == NULL) {
++        return -1;
 +    }
-+#endif"""
++    char buffer[256];
++    if (fgets(buffer, sizeof(buffer), fp) != NULL) {
++        process_buffer(buffer);
++    }
++    fclose(fp);"""
         
-        # Build context sections
-        context_section = ""
-        if context:
-            context_section = f"""
-## Grep Results:
-{context}
-"""
-        
-        # Do NOT provide fixed_code - only provide it during validation
-        # code_comparison_section = ""  # Removed - fixed_code not provided in initial fix
-        
-        # Vulnerability context
-        vulnerability_context = ""
-        if "Vulnerability Details:" in bug_location or "Description:" in bug_location:
-            vulnerability_context = """
-## Key Understanding:
-- "should be added before [X]" → Move code to execute BEFORE X
-- "removed from..." → Code is in wrong location/timing
-- Focus on EXECUTION ORDER and resource dependencies
-- Child resources must be cleaned up BEFORE parent resources
-"""
-        
-        return f"""You are analyzing a MEMORY ACCESS vulnerability. Generate a fix by understanding code movement and execution order.
+        return f"""Generate a fix for a MEMORY ACCESS vulnerability. Analyze the buggy code and generate the fix code in diff format.
 
-{mandatory_section}
+---
 
-## Patch Format:
-- Lines with "-" = REMOVED (buggy code)
-- Lines with "+" = ADDED (fixed code)
-- No prefix = context (unchanged)
+## Input Information
 
-## Vulnerability Context:
-{vulnerability_context}
-
-## Bug Location:
+### Bug Location:
 {bug_location}
 
-## Buggy Code:
+### Buggy Code:
 ```c
 {buggy_code}
 ```
 {context_section}
 
-## Analysis Focus:
-- Use-after-free: accessing memory after it's freed
-- Buffer overflow/underflow: array bounds violations
-- Null pointer dereference: accessing through null pointers
-- Resource release order: what must be cleaned up before what
+---
 
+## Critical Requirements
 
-**Note**: Grep is optional, but if you are uncertain about a definition, signature, or file/line context, you SHOULD issue a grep command to confirm before writing code. The buggy_code and vulnerability description are provided, but use grep when you need more certainty.
-## Grep Tool (Optional but recommended ):
-Use `<grep_command>grep -rn "pattern" src/</grep_command>` when you need to:
+### 1. Repair Order Context (HIGHEST PRIORITY)
+{repair_order_section if repair_order_section else "**No repair order context provided. Process this fix point independently.**"}
+
+### 2. Fix Point Description
+{fix_point_section if fix_point_section else "**No specific fix point description provided. Analyze based on vulnerability description.**"}
+
+### 2. Code Analysis Requirement
+
+**YOU MUST analyze the buggy code and identify what needs to be fixed:**
+- Say: "In the buggy code, I see [specific code] at [location]"
+- Analyze: "This code should be [moved/removed/added] because [reason based on vulnerability description]"
+- Identify: What should be REMOVED (-), ADDED (+), or MOVED
+- **Note**: You must reason about what the fix should be based on the vulnerability description and you can use grep tools .
+
+### 3. Grep Tool Usage
+
+**You should actively decide whether to use grep tools:**
+- If you are uncertain about function names, variable names, or their definitions, USE grep to verify
+- If you need to find where a function/variable is defined or how it is used, USE grep
+- If you need more context about file/line locations, USE grep
+- **Grep results will include the matching line PLUS 3 lines before and after for context**
+
+**If you have grep results (from previous grep calls):**
+- Use EXACT line numbers from grep results
+- Use EXACT file names from grep results
+- Say: "As shown in the grep results at line [LINE] in [FILE]..."
+- **DO NOT make up line numbers or file names.**
+
+**If you don't have grep results yet:**
+- Consider using grep if you need more information
+- Issue a grep command in your thinking if needed
+- The system will execute grep and return results with context (3 lines before and after)
+
+---
+
+## Analysis Focus
+
+- **Use-after-free**: accessing memory after it's freed
+- **Buffer overflow/underflow**: array bounds violations
+- **Null pointer dereference**: accessing through null pointers
+- **Resource release order**: what must be cleaned up before what
+
+---
+
+## Grep Tool (Optional but Recommended)
+
+**Important**: You should actively decide whether to use grep tools. The buggy_code and vulnerability description are provided, but if you need more certainty about function names, variable names, definitions, or context, you SHOULD use grep.
+
+**When to use grep:**
 - Verify function names or variable names (prevent typos/encoding issues)
 - Find where a function/variable is defined or how it is used
 - Locate the correct file/line context before writing the fix
-**Examples (adjust pattern/file as needed):**
-- `<grep_command>grep -rn "UA_Session_deleteSubscription" src/</grep_command>`
-- `<grep_command>grep -rn "removeSession" src/server/ua_session_manager.c</grep_command>`
-- `<grep_command>grep -rn "serverSubscriptions" src/</grep_command>`
+- Need the context of the file/line context to write the fix
+- Uncertain about the exact signature or usage of a function/variable
 
+**Grep result format:**
+- When grep is executed, it returns the matching line PLUS 3 lines before and after for context
+- This gives you a complete view of the code around the match
+- Example: If grep finds a match at line 50, you'll see lines 47-53 (3 lines before, the match, 3 lines after)
 
+**Usage format:**
+```
+<grep_command>grep -rn "pattern" src/</grep_command>
+```
 
-## Response Format:
+**How to use:**
+1. In your `<thinking>` section, if you need more information, issue a grep command
+2. The system will execute grep and return results with context
+3. Use the grep results to inform your analysis
+4. Reference the grep results in your analysis: "As shown in the grep results at line X-Y in file.c..."
+
+**Example grep commands (adjust pattern/file as needed):**
+- `<grep_command>grep -rn "function_name" src/</grep_command>`
+- `<grep_command>grep -rn "variable_name" src/path/to/file.c</grep_command>`
+- `<grep_command>grep -rn "type_name" src/</grep_command>`
+
+---
+
+## Patch Format
+
+- Lines with `-` = REMOVED (buggy code)
+- Lines with `+` = ADDED (fixed code)
+- No prefix = context (unchanged)
+
+---
+
+## Response Format
+
+**Required structure:**
+
 <thinking>
 [Your step-by-step analysis. YOU MUST include:
-1. Quote vulnerability description: "As the vulnerability description states: '[exact quote]'"
-2. Analyze buggy code: "In the buggy code, I see [code] at [location]. This should be [moved/removed/added] because [reason]"
-3. (Optional) Reference grep results if provided: "As shown in the grep results at line X-Y in file.c..."
+1. Analyze buggy code: "In the buggy code, I see [code] at [location]. This should be [moved/removed/added] because [reason]"
+2. (If needed) Issue grep commands: If you need more information about function names, variable names, or context, issue grep commands here
+3. (If grep results available) Reference grep results: "As shown in the grep results at line X-Y in file.c..."
 ]
 </thinking>
 
@@ -361,7 +554,7 @@ Use `<grep_command>grep -rn "pattern" src/</grep_command>` when you need to:
 
 **CRITICAL REQUIREMENTS:**
 1. **DO NOT provide text descriptions** like "The fix involves moving...". YOU MUST provide actual code in diff format.
-2. **FIX COMPLETENESS**: Your fix MUST be complete and address all aspects mentioned in the vulnerability description. If the description mentions multiple operations (e.g., subscription cleanup AND publish request cleanup), your fix MUST include ALL.
+2. **FIX COMPLETENESS**: Your fix MUST be complete and address all aspects mentioned in the vulnerability description. If the description mentions multiple operations (e.g., resource cleanup AND related operations), your fix MUST include ALL.
 3. **Analyze carefully**: Based on the vulnerability description, ensure your fix addresses all related issues.
 
 **LOGIC CONSISTENCY CHECK:**
@@ -370,17 +563,11 @@ Use `<grep_command>grep -rn "pattern" src/</grep_command>` when you need to:
 - If the fix ensures something happens "before" another thing, your description should say "before", not "after"
 </fix>
 
-**FINAL CHECKLIST:**
-✓ Did I quote the vulnerability description with exact terms?
-✓ Did I analyze the buggy code and identify what needs to be fixed?
-✓ Did I provide ACTUAL CODE in <fix> section (not text description)?
-✓ Did I ensure the fix addresses the vulnerability described?
-If ANY answer is NO, my response is INCOMPLETE.
 """
     
     @staticmethod
-    def get_fix_validation_prompt(generated_fix: str, ground_truth_fix: str, 
-                                  bug_location: str) -> str:
+    def get_fix_validation_prompt(generated_fix: str, fixed_code: Dict, 
+                                  fix_point: Dict, bug_location: str) -> str:
         """
         生成修复验证提示词
         用于将模型生成的修复与标准答案进行对比验证
@@ -389,31 +576,59 @@ If ANY answer is NO, my response is INCOMPLETE.
         
         Args:
             generated_fix: 模型生成的修复代码
-            ground_truth_fix: 数据集中的正确修复代码
+            fixed_code: 完整的修复代码字典，包含所有文件的修复（格式：{file_path: {diff: ..., changes: [...]}}）
+            fix_point: 修复点信息，包含文件路径、函数名、行号等
             bug_location: 位置标识符
             
         Returns:
             格式化后的提示词字符串
         """
-        return f"""You are reviewing a code fix for a MEMORY ACCESS vulnerability. A model has generated a fix attempt, and you need to compare it with the correct fix.
+        # Format fixed_code for display
+        fixed_code_str = ""
+        for file_path, file_info in fixed_code.items():
+            fixed_code_str += f"\n\nFile: {file_path}\n"
+            fixed_code_str += "Diff:\n"
+            fixed_code_str += "```diff\n"
+            fixed_code_str += file_info.get('diff', '')
+            fixed_code_str += "\n```\n"
+            if 'changes' in file_info:
+                fixed_code_str += "Changes:\n"
+                for change in file_info['changes']:
+                    fixed_code_str += f"  - Lines {change.get('line_start', '?')}-{change.get('line_end', '?')}: {change.get('operation', '?')} - {change.get('context', 'N/A')}\n"
+        
+        # Extract fix point information
+        fix_point_file = fix_point.get('file', '')
+        fix_point_function = fix_point.get('function')
+        fix_point_description = fix_point.get('description', '')
+        
+        return f"""You are reviewing a code fix for a MEMORY ACCESS vulnerability. A model has generated a fix attempt for a specific fix point, and you need to compare it with the correct fix.
 
 Bug Location: {bug_location}
+
+Fix Point Information:
+- File: {fix_point_file}
+- Function: {fix_point_function if fix_point_function else 'N/A'}
+- Description: {fix_point_description}
 
 Generated Fix:
 ```c
 {generated_fix}
 ```
 
-Correct Fix:
-```c
-{ground_truth_fix}
-```
+Complete Fixed Code (all files):
+{fixed_code_str}
 
-Your task is to analyze whether the generated fix correctly addresses the MEMORY ACCESS vulnerability. Focus on:
+Your task:
+1. **Identify the relevant fix**: From the "Complete Fixed Code" above, identify which part corresponds to the current fix point (based on file path, function name, and description).
+2. **Compare**: Compare the generated fix with the relevant part of the correct fix.
+3. **Analyze**: Determine if the generated fix correctly addresses the MEMORY ACCESS vulnerability for this specific fix point.
+
+Focus on:
 - Does it fix the memory safety issue? (use-after-free, buffer overflow, etc.)
 - Is the resource release order correct?
 - Are pointers handled safely?
 - Is memory accessed only when valid?
+- Does it match the correct fix for this specific fix point?
 
 If it is incorrect, provide REFLECTIVE HINTS (not direct solutions) that would guide the model to discover the correct fix on its own.
 
@@ -424,6 +639,7 @@ Important guidelines:
 - DO suggest areas to investigate further (resource dependencies, cleanup order, pointer lifecycle)
 - Focus on memory access patterns and resource release order
 - Use reflective language like "Have you considered...", "What about...", "Maybe you should think about..."
+- If the fix point is in a specific file/function, make sure your hints are relevant to that location
 
 If the fix is correct, simply state that it is correct.
 
@@ -542,7 +758,7 @@ You are iteratively improving your analysis and fix based on:
 - Your previous analysis
 - Validation feedback (if provided) - which contains hints about what might be missing or incorrect
 
-**Grep when uncertain**: If you are unsure about a function/variable definition, signature, or file/line context, issue a grep command to confirm (e.g., `<grep_command>grep -rn "removeSession" src/server/ua_session_manager.c</grep_command>`).
+**Grep when uncertain**: If you are unsure about a function/variable definition, signature, or file/line context, issue a grep command to confirm (e.g., `<grep_command>grep -rn "function_name" src/path/to/file.c</grep_command>`).
 
 {missing_section}
 {grep_requirement}

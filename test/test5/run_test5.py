@@ -172,7 +172,8 @@ def main():
             repair_order_start = time.time()
             fix_points = chain_builder.analyze_repair_order(
                 test_case['buggy_code'],
-                detailed_bug_location
+                detailed_bug_location,
+                fix_points=test_case.get('fix_points')
             )
             repair_order_end = time.time()
             repair_order_duration = repair_order_end - repair_order_start
@@ -205,8 +206,9 @@ def main():
                 print("No existing fix points found, extracting from bug_location...")
                 fix_points = chain_builder.analyze_repair_order(
                     test_case['buggy_code'],
-                    test_case['fixed_code'],
-                    detailed_bug_location
+                    detailed_bug_location,
+                    fixed_code=test_case.get('fixed_code'),
+                    fix_points=test_case.get('fix_points')
                 )
                 print(f"Extracted {len(fix_points)} fix points from bug_location")
         

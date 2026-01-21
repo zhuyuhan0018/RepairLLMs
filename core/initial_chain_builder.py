@@ -28,7 +28,9 @@ class InitialChainBuilder:
         self.grep_tool = GrepTool()
     
     def analyze_repair_order(self, buggy_code: str, bug_location: str,
-                           fixed_code: Optional[str] = None) -> List[Dict]:
+                           fixed_code: Optional[str] = None,
+                           fix_points: Optional[List[Dict]] = None,
+                           debug_info: Optional[List[Dict]] = None) -> List[Dict]:
         """
         Analyze repair order and identify fix points
         
@@ -36,6 +38,8 @@ class InitialChainBuilder:
             buggy_code: Original buggy code
             bug_location: Location of the bug
             fixed_code: Fixed code (optional, deprecated - not used in repair order analysis)
+            fix_points: Fix points from JSON (optional), format: [{"id": 1, "file": "...", "function": "...", "line_start": X, "line_end": Y}, ...]
+                        If provided, will be passed directly to prompt generation
             
         Returns:
             List of fix point dictionaries
@@ -72,20 +76,116 @@ class InitialChainBuilder:
             print(f"[Stage] Note: fixed_code provided but will NOT be used in repair order analysis")
         stage_start_time = time.time()
         print(f"[Stage] Calling model API for repair order analysis...")
+        def _normalize_loc(file_path: str, func_name: str, line_start: str, line_end: str) -> str:
+            """Match the canonical location format produced by _parse_fix_points."""
+            func_name = (func_name or "None").strip()
+            return f"{file_path.strip()}:{func_name} (lines {str(line_start).strip()}-{str(line_end).strip()})"
+
+        def _json_locations(fps: List[Dict]) -> List[str]:
+            locs: List[str] = []
+            for fp in fps:
+                locs.append(
+                    _normalize_loc(
+                        fp.get("file", ""),
+                        fp.get("function"),
+                        fp.get("line_start", ""),
+                        fp.get("line_end", ""),
+                    )
+                )
+            return locs
+
+        def _needs_resort(model_fps: List[Dict], json_fps: Optional[List[Dict]]) -> bool:
+            """
+            Heuristic guardrail:
+            - If JSON fix_points are provided and the model output preserves the exact JSON order,
+              it likely ignored sorting. Trigger one forced re-sort attempt.
+            """
+            if not json_fps:
+                return False
+            model_locs = [fp.get("location", "").strip() for fp in model_fps]
+            json_locs = [s.strip() for s in _json_locations(json_fps)]
+            # Only compare when lengths match and all locations are non-empty
+            if len(model_locs) != len(json_locs) or any(not x for x in model_locs):
+                return False
+            return model_locs == json_locs
+
         api_start_time = time.time()
-        prompt = PromptTemplates.get_repair_order_analysis_prompt(
-            buggy_code, bug_location
-        )
-        
-        response = self.aliyun_model.generate(prompt)
+        prompt = PromptTemplates.get_repair_order_analysis_prompt(buggy_code, bug_location, fix_points)
+
+        if debug_info is not None:
+            debug_info.append({
+                "stage": "repair_order_analysis",
+                "attempt": 1,
+                "prompt": prompt,
+                "bug_location": bug_location,
+                "buggy_code_chars": len(buggy_code),
+                "timestamp": time.time(),
+            })
+
+        # Use a low temperature for stable ordering and strict formatting compliance
+        response = self.aliyun_model.generate(prompt, temperature=0.0)
         api_end_time = time.time()
         api_duration = api_end_time - api_start_time
         print(f"[Stage] Model API call completed in {api_duration:.2f} seconds")
         print(f"[Stage] Model response received ({len(response)} characters)")
+
+        if debug_info is not None:
+            debug_info.append({
+                "stage": "repair_order_analysis",
+                "attempt": 1,
+                "response": response,
+                "api_duration_seconds": api_duration,
+                "response_chars": len(response),
+                "timestamp": time.time(),
+            })
         
         # Parse fix points from response
         print(f"[Stage] Parsing fix points from response...")
-        fix_points = self._parse_fix_points(response, bug_location)
+        parsed_fix_points = self._parse_fix_points(response, bug_location)
+
+        # Guardrail: if fix_points come from JSON and model appears to keep original order,
+        # do ONE forced re-sort attempt with a stricter prompt and low temperature.
+        if _needs_resort(parsed_fix_points, fix_points):
+            print("[Stage] Detected likely unsorted output (matches JSON order). Retrying once with forced sorting...")
+            forced_prompt = (
+                prompt
+                + "\n\n---\n\n"
+                + "## ⚠️ FORCED RE-SORT (SECOND ATTEMPT)\n"
+                + "Your previous output appears to preserve the original JSON order.\n"
+                + "You MUST re-order the fix points according to the Repair Order Rules.\n"
+                + "Do NOT keep the JSON order. Output ONLY the corrected sorted list in <fix_points>.\n"
+            )
+            retry_start = time.time()
+            if debug_info is not None:
+                debug_info.append({
+                    "stage": "repair_order_analysis",
+                    "attempt": 2,
+                    "prompt": forced_prompt,
+                    "temperature": 0.0,
+                    "timestamp": time.time(),
+                })
+            retry_response = self.aliyun_model.generate(forced_prompt, temperature=0.0)
+            retry_end = time.time()
+            print(f"[Stage] Re-sort API call completed in {retry_end - retry_start:.2f} seconds")
+            print(f"[Stage] Re-sort response received ({len(retry_response)} characters)")
+            print(f"[Stage] Parsing fix points from re-sort response...")
+            if debug_info is not None:
+                debug_info.append({
+                    "stage": "repair_order_analysis",
+                    "attempt": 2,
+                    "response": retry_response,
+                    "api_duration_seconds": retry_end - retry_start,
+                    "response_chars": len(retry_response),
+                    "timestamp": time.time(),
+                })
+            retry_parsed = self._parse_fix_points(retry_response, bug_location)
+            # If retry produced same-length non-empty list, accept it
+            if retry_parsed and len(retry_parsed) == len(parsed_fix_points):
+                parsed_fix_points = retry_parsed
+            else:
+                print("[Stage] Re-sort attempt did not produce a valid list; keeping first-pass result.")
+
+        fix_points = parsed_fix_points
         stage_end_time = time.time()
         stage_duration = stage_end_time - stage_start_time
         print(f"[Stage] Repair Order Analysis - Identified {len(fix_points)} fix point(s)")
@@ -105,14 +205,31 @@ class InitialChainBuilder:
         
         if match:
             content = match.group(1)
-            # Extract numbered items
+            # Extract numbered items - support both formats:
+            # Format 1: "1. file_path:function_name (lines X-Y)" - new format
+            # Format 2: "1. description text" - old format
             items = re.findall(r'\d+\.\s*(.+)', content)
             for i, item in enumerate(items):
-                fix_points.append({
-                    'id': i + 1,
-                    'description': item.strip(),
-                    'location': f"fix_point_{i+1}"
-                })
+                item = item.strip()
+                # Try to parse new format: "file_path:function_name (lines X-Y)"
+                new_format_pattern = r'([^:]+):([^(]+)\s+\(lines\s+(\d+)-(\d+)\)'
+                new_format_match = re.search(new_format_pattern, item)
+                if new_format_match:
+                    file_path, func_name, line_start, line_end = new_format_match.groups()
+                    func_display = func_name.strip() if func_name.strip() != "None" else "header include"
+                    description = f"{file_path.strip()}:{func_display} (lines {line_start}-{line_end})"
+                    fix_points.append({
+                        'id': i + 1,
+                        'description': description,
+                        'location': f"{file_path.strip()}:{func_name.strip()} (lines {line_start}-{line_end})"
+                    })
+                else:
+                    # Fall back to old format - use item as description
+                    fix_points.append({
+                        'id': i + 1,
+                        'description': item,
+                        'location': f"fix_point_{i+1}"
+                    })
         
         # If no fix points found, try to extract from vulnerability_locations in bug_location
         if not fix_points and "Vulnerability Details:" in bug_location:
@@ -120,16 +237,35 @@ class InitialChainBuilder:
             vuln_section = bug_location.split("Vulnerability Details:")[1] if "Vulnerability Details:" in bug_location else ""
             if vuln_section:
                 # Parse each vulnerability location
-                # Format: "  1. file:function (lines X-Y)\n     Description: ..."
-                vuln_pattern = r'(\d+)\.\s+([^:]+):([^(]+)\s+\(lines\s+(\d+)-(\d+)\)\s+Description:\s+(.+?)(?=\n\s*\d+\.|$)'
-                matches = re.findall(vuln_pattern, vuln_section, re.DOTALL)
-                for match in matches:
-                    idx, file_path, func_name, line_start, line_end, description = match
-                    fix_points.append({
-                        'id': int(idx),
-                        'description': description.strip(),
-                        'location': f"{file_path.strip()}:{func_name.strip()} (line {line_start})"
-                    })
+                # Format 1: "  1. file:function (lines X-Y)" - without description
+                # Format 2: "  1. file:function (lines X-Y) Description: ..." - with description
+                # Support both formats
+                vuln_pattern_no_desc = r'(\d+)\.\s+([^:]+):([^(]+)\s+\(lines\s+(\d+)-(\d+)\)'
+                vuln_pattern_with_desc = r'(\d+)\.\s+([^:]+):([^(]+)\s+\(lines\s+(\d+)-(\d+)\)\s+Description:\s+(.+?)(?=\n\s*\d+\.|$)'
+                
+                # Try pattern with description first
+                matches = re.findall(vuln_pattern_with_desc, vuln_section, re.DOTALL)
+                if matches:
+                    for match in matches:
+                        idx, file_path, func_name, line_start, line_end, description = match
+                        fix_points.append({
+                            'id': int(idx),
+                            'description': description.strip(),
+                            'location': f"{file_path.strip()}:{func_name.strip()} (lines {line_start}-{line_end})"
+                        })
+                else:
+                    # Try pattern without description
+                    matches = re.findall(vuln_pattern_no_desc, vuln_section, re.MULTILINE)
+                    for match in matches:
+                        idx, file_path, func_name, line_start, line_end = match
+                        # Create description from file and function
+                        func_display = func_name.strip() if func_name.strip() != "None" else "header include"
+                        description = f"{file_path.strip()}:{func_display} (lines {line_start}-{line_end})"
+                        fix_points.append({
+                            'id': int(idx),
+                            'description': description,
+                            'location': f"{file_path.strip()}:{func_name.strip()} (lines {line_start}-{line_end})"
+                        })
         
         # Final fallback: create single fix point
         if not fix_points:
@@ -145,8 +281,10 @@ class InitialChainBuilder:
                              buggy_code: str,
                              fixed_code: str,
                              fix_point: Dict,
-                             ground_truth_fix: Optional[str] = None,
-                             debug_info: Optional[List[Dict]] = None) -> Tuple[str, Optional[str]]:
+                             fixed_code_dict: Optional[Dict] = None,
+                             debug_info: Optional[List[Dict]] = None,
+                             all_fix_points: Optional[List[Dict]] = None,
+                             current_fix_point_index: Optional[int] = None) -> Tuple[str, Optional[str]]:
         """
         Build thinking chain for a single fix point
         
@@ -154,7 +292,9 @@ class InitialChainBuilder:
             buggy_code: Buggy code at this location
             fixed_code: Fixed code at this location (not provided to model, only for validation)
             fix_point: Fix point dictionary
-            ground_truth_fix: Ground truth fix for validation
+            fixed_code_dict: Complete fixed code dictionary for validation (format: {file_path: {diff: ..., changes: [...]}})
+            all_fix_points: All fix points from repair order analysis (sorted list)
+            current_fix_point_index: Index of current fix point in all_fix_points (0-based)
             
         Returns:
             Tuple of (thinking_chain, final_fix_code)
@@ -176,10 +316,12 @@ class InitialChainBuilder:
         print(f"    [Stage] Fix Point: {fix_point.get('description', fix_point.get('location', 'N/A'))[:60]}")
         print(f"    [Stage] Fix Point ID: {fix_point.get('id', 'N/A')}")
         print(f"    [Stage] Location: {fix_point.get('location', 'N/A')}")
-        if ground_truth_fix:
-            print(f"    [Stage] Ground Truth: Available ({len(ground_truth_fix)} characters) - will be used for validation")
+        if fixed_code_dict:
+            total_files = len(fixed_code_dict)
+            total_size = sum(len(str(v.get('diff', ''))) for v in fixed_code_dict.values())
+            print(f"    [Stage] Fixed Code Dictionary: Available ({total_files} files, {total_size} characters) - will be used for validation")
         else:
-            print(f"    [Stage] Ground Truth: NOT available - validation will be skipped")
+            print(f"    [Stage] Fixed Code Dictionary: NOT available - validation will be skipped")
         print("    " + "-" * 80)
         
         while iteration < MAX_ITERATIONS:
@@ -208,7 +350,9 @@ class InitialChainBuilder:
                     prompt_gen_start = time.time()
                     fix_point_description = fix_point.get('description', '')
                     prompt = PromptTemplates.get_initial_fix_prompt(
-                        buggy_code, fix_point['location'], context, None, fix_point_description
+                        buggy_code, fix_point['location'], context, None, fix_point_description,
+                        all_fix_points=all_fix_points,
+                        current_fix_point_index=current_fix_point_index
                     )
                     prompt_gen_end = time.time()
                     prompt_gen_duration = prompt_gen_end - prompt_gen_start
@@ -228,14 +372,45 @@ class InitialChainBuilder:
                 prompt_gen_end = time.time()
                 prompt_gen_duration = prompt_gen_end - prompt_gen_start
                 print(f"    [Time] Prompt generation: {prompt_gen_duration:.3f} seconds")
+
+            # Debug capture: prompt for this iteration
+            if debug_info is not None:
+                debug_info.append({
+                    "stage": "initial_fix_generation" if iteration == 0 else "iterative_reflection",
+                    "fix_point_id": fix_point.get("id"),
+                    "fix_point_location": fix_point.get("location"),
+                    "fix_point_description": fix_point.get("description"),
+                    "iteration": iteration + 1,
+                    "prompt": prompt,
+                    "context_chars": len(context) if context else 0,
+                    "timestamp": time.time(),
+                })
             
-            print(f"    [Stage] Calling model API...")
+            print(f"    [Stage] Calling model API...", flush=True)
+            print(f"    [Stage] Note: API call ,please wait...", flush=True)
             api_start_time = time.time()
-            response = self.aliyun_model.generate(prompt)
+            try:
+                response = self.aliyun_model.generate(prompt)
+            except Exception as e:
+                print(f"    [Error] API call failed: {e}", flush=True)
+                raise
             api_end_time = time.time()
             api_duration = api_end_time - api_start_time
-            print(f"    [Stage] Model API call completed in {api_duration:.2f} seconds")
-            print(f"    [Stage] Model response received ({len(response)} characters)")
+
+            # Debug capture: raw response for this iteration
+            if debug_info is not None:
+                debug_info.append({
+                    "stage": "initial_fix_generation" if iteration == 0 else "iterative_reflection",
+                    "fix_point_id": fix_point.get("id"),
+                    "fix_point_location": fix_point.get("location"),
+                    "iteration": iteration + 1,
+                    "response": response,
+                    "api_duration_seconds": api_duration,
+                    "response_chars": len(response) if response else 0,
+                    "timestamp": time.time(),
+                })
+            print(f"    [Stage] Model API call completed in {api_duration:.2f} seconds", flush=True)
+            print(f"    [Stage] Model response received ({len(response)} characters)", flush=True)
             
             # Check if response is truncated (missing closing tags)
             is_truncated = False
@@ -416,7 +591,7 @@ class InitialChainBuilder:
                     thinking_chain += "\n\n[Max grep attempts reached]"
             
             # If we have a fix, validate it (unless validation is skipped)
-            if fix and ground_truth_fix:
+            if fix and fixed_code_dict:
                 if SKIP_VALIDATION:
                     print(f"    [Stage] Validation - SKIPPED (SKIP_VALIDATION enabled)")
                     print(f"    [Stage] Skipping validation, using fix as-is")
@@ -425,9 +600,10 @@ class InitialChainBuilder:
                     break
                 else:
                     print(f"    [Stage] Validation - Comparing generated fix with ground truth")
+                    print(f"    [Stage] Validation - Model will identify relevant fix from fixed_code_dict")
                     validation_start_time = time.time()
                     is_correct, validation_hints = self._validate_fix(
-                        fix, ground_truth_fix, fix_point['location']
+                        fix, fixed_code_dict, fix_point, fix_point.get('location', 'unknown')
                     )
                     validation_end_time = time.time()
                     validation_duration = validation_end_time - validation_start_time
@@ -759,18 +935,25 @@ class InitialChainBuilder:
         
         return True, None
     
-    def _validate_fix(self, generated_fix: str, ground_truth_fix: str, 
-                     bug_location: str) -> Tuple[bool, Optional[str]]:
+    def _validate_fix(self, generated_fix: str, fixed_code: Dict, 
+                     fix_point: Dict, bug_location: str) -> Tuple[bool, Optional[str]]:
         """
         Validate generated fix against ground truth
         
+        Args:
+            generated_fix: Generated fix code
+            fixed_code: Complete fixed code dictionary (format: {file_path: {diff: ..., changes: [...]}})
+            fix_point: Fix point information (file, function, description, etc.)
+            bug_location: Bug location identifier
+            
         Returns:
             Tuple of (is_correct, hints)
         """
         print(f"    [Stage] Validation - Calling model API for fix validation...")
+        print(f"    [Stage] Validation - Fix point: {fix_point.get('file', 'N/A')}:{fix_point.get('function', 'N/A')}")
         validation_api_start = time.time()
         prompt = PromptTemplates.get_fix_validation_prompt(
-            generated_fix, ground_truth_fix, bug_location
+            generated_fix, fixed_code, fix_point, bug_location
         )
         
         response = self.aliyun_model.generate(prompt)

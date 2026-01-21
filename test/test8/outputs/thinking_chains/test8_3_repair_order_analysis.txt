@@ -1,0 +1,50 @@
+============================================================
+Test8: Repair Order Analysis Only
+============================================================
+Case ID: test8
+Original Case ID: test6
+Created at: 2026-01-04T19:50:22.625983
+Total Duration: 288.50 seconds
+
+============================================================
+Repair Order Analysis:
+------------------------------------------------------------
+Duration: 288.50 seconds
+Fix Points Identified: 1
+JSON Fix Points (for reference): 4
+Identification Rate: 1/4 = 25.0%
+------------------------------------------------------------
+
+Fix Point 1:
+  Location: src/server/ua_session.c and src/server/ua_session_manager.c
+  Description: Main fix location
+
+============================================================
+Comparison: Model vs JSON
+============================================================
+Model identified: 1 fix point(s)
+JSON contains: 4 fix point(s)
+Identification Rate: 25.0%
+
+JSON Fix Points (for reference):
+------------------------------------------------------------
+
+Fix Point 1:
+  File: src/server/ua_session.c
+  Function: UA_Session_deleteMembersCleanup
+  Lines: 36-54
+
+Fix Point 2:
+  File: src/server/ua_session_manager.c
+  Function: None
+  Lines: 11-16
+
+Fix Point 3:
+  File: src/server/ua_session_manager.c
+  Function: removeSession
+  Lines: 37-42
+
+Fix Point 4:
+  File: src/server/ua_session_manager.c
+  Function: UA_SessionManager_deleteMembers
+  Lines: 20-61

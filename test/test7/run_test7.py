@@ -19,44 +19,6 @@ sys.path.insert(0, str(pathlib.Path(__file__).parent.parent.parent))
 print("Script started", flush=True)
 
 
-def extract_ground_truth_fix_for_point(test_case, fix_point):
-    """
-    Extract ground truth fix for a specific fix point from test_case['fixed_code']
-    
-    Args:
-        test_case: Test case dictionary
-        fix_point: Fix point dictionary with 'file' and 'function' fields
-        
-    Returns:
-        Ground truth fix code as string, or None if not found
-    """
-    if 'fixed_code' not in test_case:
-        return None
-    
-    fixed_code = test_case['fixed_code']
-    if not isinstance(fixed_code, dict):
-        return None
-    
-    # Try to find the file in fixed_code
-    file_path = fix_point.get('file')
-    if not file_path:
-        return None
-    
-    if file_path not in fixed_code:
-        return None
-    
-    file_fix = fixed_code[file_path]
-    if 'diff' not in file_fix:
-        return None
-    
-    # Extract the diff content
-    diff = file_fix['diff']
-    
-    # For now, return the diff as ground truth
-    # In a more sophisticated implementation, we could extract only the relevant part
-    return diff
-
-
 def main():
     """Run test7: Repair order analysis + first fix point initial generation + validation + optimization"""
     print("Entering main()", flush=True)
@@ -74,7 +36,8 @@ def main():
         test_case = json.load(f)
     print("JSON loaded successfully", flush=True)
     
-    case_id = test_case.get('case_id', 'test7')
+    case_id = 'test7'  # Use test7 as case_id for output organization
+    original_case_id = test_case.get('case_id', 'test6')
     codebase_path = test_case.get('codebase_path', 'datasets/codebases/open62541')
     
     print("="*60, flush=True)
@@ -170,7 +133,8 @@ def main():
         print(f"  - Starting API call (this may take 10-60 seconds)...", flush=True)
         fix_points = chain_builder.analyze_repair_order(
             test_case['buggy_code'],
-            detailed_bug_location
+            detailed_bug_location,
+            fix_points=test_case.get('fix_points')
         )
         print(f"  - analyze_repair_order returned {len(fix_points)} fix points", flush=True)
         repair_order_end = time.time()
@@ -205,29 +169,33 @@ def main():
         print("      Validation will be performed if ground truth is available.")
         print("="*60)
         
-        # Extract ground truth fix for this fix point
-        ground_truth_fix = extract_ground_truth_fix_for_point(test_case, first_fix_point)
-        if ground_truth_fix:
-            print(f"\n✓ Ground truth fix available ({len(ground_truth_fix)} characters)")
-            print("  Validation will be performed after initial fix generation")
+        # Get fixed_code dictionary for validation
+        # Model will identify the relevant fix from the complete fixed_code dictionary
+        fixed_code_dict = test_case.get('fixed_code')
+        if fixed_code_dict:
+            total_files = len(fixed_code_dict)
+            total_size = sum(len(str(v.get('diff', ''))) for v in fixed_code_dict.values())
+            print(f"\n✓ Fixed code dictionary available ({total_files} files, {total_size} characters)", flush=True)
+            print("  Validation will be performed after initial fix generation", flush=True)
+            print("  Model will identify the relevant fix from the complete fixed_code dictionary", flush=True)
         else:
-            print("\n⚠️  Ground truth fix not available")
-            print("  Validation will be skipped")
+            print("\n⚠️  Fixed code dictionary not available", flush=True)
+            print("  Validation will be skipped", flush=True)
         
         # Build thinking chain for first fix point
         # Note: fixed_code is passed as None - model should not see the ground truth
-        # ground_truth_fix will be used for validation
+        # fixed_code_dict will be used for validation (model will identify relevant fix)
         initial_fix_start = time.time()
         print(f"\n  - Calling build_fix_point_chain for fix point {first_fix_point.get('id', 'N/A')}...", flush=True)
         print(f"  - Buggy code length: {len(test_case['buggy_code'])} chars", flush=True)
-        print(f"  - Ground truth available: {'Yes' if ground_truth_fix else 'No'}", flush=True)
+        print(f"  - Fixed code dictionary available: {'Yes' if fixed_code_dict else 'No'}", flush=True)
         print(f"  - Starting initial fix generation (this may take 30-120 seconds)...", flush=True)
         
         thinking_chain, final_fix_code = chain_builder.build_fix_point_chain(
             buggy_code=test_case['buggy_code'],
             fixed_code=None,  # Model should not see fixed_code
             fix_point=first_fix_point,
-            ground_truth_fix=ground_truth_fix,  # For validation only, not passed to model
+            fixed_code_dict=fixed_code_dict,  # For validation only, model will identify relevant fix
             debug_info=None  # Can be set to list to collect debug info
         )
         
@@ -255,12 +223,13 @@ def main():
         print(f"  - Validation: {'Performed' if ground_truth_fix else 'Skipped (no ground truth)'}")
         print(f"  - Total duration: {repair_order_duration + initial_fix_duration:.2f} seconds")
         
-        # Save results
-        output_dir = pathlib.Path('test') / case_id / 'outputs'
+        # Save results - use test7 directory for outputs
+        output_dir = pathlib.Path('test') / 'test7' / 'outputs'
         output_dir.mkdir(parents=True, exist_ok=True)
         
         results = {
             'case_id': case_id,
+            'original_case_id': original_case_id,  # Keep original for reference
             'bug_location': detailed_bug_location,
             'repair_order_analysis': {
                 'fix_points': fix_points,
@@ -272,8 +241,8 @@ def main():
                 'thinking_chain': thinking_chain,
                 'final_fix_code': final_fix_code,
                 'duration_seconds': initial_fix_duration,
-                'validation_performed': ground_truth_fix is not None,
-                'ground_truth_available': ground_truth_fix is not None,
+                'validation_performed': fixed_code_dict is not None,
+                'fixed_code_dict_available': fixed_code_dict is not None,
             },
             'extraction_method': 'model_api_analysis',
             'total_duration_seconds': repair_order_duration + initial_fix_duration,
@@ -298,17 +267,18 @@ def main():
             }
         
         # Save JSON
-        json_output = output_dir / 'thinking_chains' / f"{case_id}_first_fix_point_with_validation.json"
+        json_output = output_dir / 'thinking_chains' / f"test7_first_fix_point_with_validation.json"
         json_output.parent.mkdir(parents=True, exist_ok=True)
         with json_output.open('w', encoding='utf-8') as f:
             json.dump(results, f, indent=2, ensure_ascii=False)
         
         # Save TXT summary
-        txt_output = output_dir / 'thinking_chains' / f"{case_id}_first_fix_point_with_validation.txt"
+        txt_output = output_dir / 'thinking_chains' / f"test7_first_fix_point_with_validation.txt"
         with txt_output.open('w', encoding='utf-8') as f:
             f.write(f"Test7: Repair Order Analysis + First Fix Point + Validation\n")
             f.write("="*60 + "\n\n")
             f.write(f"Case ID: {case_id}\n")
+            f.write(f"Original Case ID: {original_case_id}\n")
             f.write(f"Created at: {datetime.now().isoformat()}\n\n")
             
             f.write("Repair Order Analysis:\n")
