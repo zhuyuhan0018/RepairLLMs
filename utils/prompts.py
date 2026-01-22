@@ -50,15 +50,7 @@ class PromptTemplates:
             fix_points_section = f"""
 ## Fix Points from JSON Input
 
-The fix points are provided from the JSON `fix_points` array. **These correspond to the JSON format:**
-- Each fix point has: `id`, `file`, `function` (or `null` for header includes), `line_start`, `line_end`
-- Format below: `id. file_path:function_name (lines line_start-line_end)`
-- If `function` is `null` in JSON, it appears as `None` below
-
-**Your task is to:**
-1. **Extract all fix points** from the list below
-2. **Merge fix points** that are in the same file AND same function (see merging rules)
-3. **Sort the merged fix points** according to the repair order rules (THIS IS THE CORE TASK)
+You are given fix points from the JSON `fix_points` array. Your job is to **(1) merge** (only when allowed) and **(2) sort** them by the repair order rules.
 
 **Fix Points from JSON:**
 {vuln_section}
@@ -87,15 +79,7 @@ The fix points are provided from the JSON `fix_points` array. **These correspond
             fix_points_section = f"""
 ## Fix Points from JSON Input
 
-The fix points are provided in the "Vulnerability Details" section below. **These correspond to the JSON `fix_points` array format:**
-- Each fix point has: `id`, `file`, `function` (or `null` for header includes), `line_start`, `line_end`
-- Format in "Vulnerability Details": `id. file_path:function_name (lines line_start-line_end)`
-- If `function` is `null` in JSON, it appears as `None` in "Vulnerability Details"
-
-**Your task is to:**
-1. **Extract all fix points** from "Vulnerability Details" below
-2. **Merge fix points** that are in the same file AND same function (see merging rules)
-3. **Sort the merged fix points** according to the repair order rules (THIS IS THE CORE TASK)
+You are given fix points in the "Vulnerability Details" section. Your job is to **(1) merge** (only when allowed) and **(2) sort** them by the repair order rules.
 
 **Fix Points from "Vulnerability Details":**
 {vuln_section.strip()}
@@ -243,35 +227,7 @@ The input follows this JSON structure:
 
 ## Grep Tool (Optional but Recommended)
 
-**Important**: You should actively decide whether to use grep tools. The buggy_code and vulnerability description are provided, but if you need more certainty about function names, variable names, definitions, or context, you SHOULD use grep.
-
-**When to use grep:**
-- Verify function names or variable names (prevent typos/encoding issues)
-- Find where a function/variable is defined or how it is used
-- Locate the correct file/line context before writing the fix
-- Need the context of the file/line context to write the fix
-- Uncertain about the exact signature or usage of a function/variable
-
-**Grep result format:**
-- When grep is executed, it returns the matching line PLUS 3 lines before and after for context
-- This gives you a complete view of the code around the match
-- Example: If grep finds a match at line 50, you'll see lines 47-53 (3 lines before, the match, 3 lines after)
-
-**Usage format:**
-```
-<grep_command>grep -rn "pattern" src/</grep_command>
-```
-
-**How to use:**
-1. In your `<thinking>` section, if you need more information, issue a grep command
-2. The system will execute grep and return results with context
-3. Use the grep results to inform your analysis
-4. Reference the grep results in your analysis: "As shown in the grep results at line X-Y in file.c..."
-
-**Example grep commands (adjust pattern/file as needed):**
-- `<grep_command>grep -rn "function_name" src/</grep_command>`
-- `<grep_command>grep -rn "variable_name" src/path/to/file.c</grep_command>`
-- `<grep_command>grep -rn "type_name" src/</grep_command>`
+Use grep only if you are unsure about names/definitions or need extra surrounding context. Grep returns the matching line plus **3 lines before and after**. Format: `<grep_command>grep -rn "pattern" src/</grep_command>`.
 
 ---
 

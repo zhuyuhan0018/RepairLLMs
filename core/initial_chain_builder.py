@@ -307,6 +307,8 @@ class InitialChainBuilder:
         context = ""
         no_fix_count = 0  # Track consecutive iterations without fix
         final_fix_code = None  # Track final fix code
+        all_validation_feedbacks = []  # Track all validation feedbacks for history
+        all_generated_fixes = []  # Track all generated fixes for history
         
         print("")
         print("    " + "=" * 80)
@@ -365,9 +367,20 @@ class InitialChainBuilder:
                 print("    " + "-" * 80)
                 iteration_start_time = time.time()
                 # Do NOT pass fixed_code in iterative reflection - only provide it during validation
+                # Build complete history of all validation feedbacks and generated fixes
+                complete_validation_history = "\n\n".join([
+                    f"[Iteration {vf['iteration']} Validation Feedback]:\n{vf['feedback']}"
+                    for vf in all_validation_feedbacks
+                ]) if all_validation_feedbacks else None
+                complete_fix_history = "\n\n".join([
+                    f"[Iteration {gf['iteration']} Generated Fix]:\n{gf['fix']}"
+                    for gf in all_generated_fixes
+                ]) if all_generated_fixes else None
                 prompt_gen_start = time.time()
                 prompt = PromptTemplates.get_iterative_reflection_prompt(
-                    thinking_chain, buggy_code, None, None, context if grep_attempts > 0 else None
+                    thinking_chain, buggy_code, None, complete_validation_history, 
+                    context if grep_attempts > 0 else None,
+                    fix_history=complete_fix_history
                 )
                 prompt_gen_end = time.time()
                 prompt_gen_duration = prompt_gen_end - prompt_gen_start
@@ -603,7 +616,11 @@ class InitialChainBuilder:
                     print(f"    [Stage] Validation - Model will identify relevant fix from fixed_code_dict")
                     validation_start_time = time.time()
                     is_correct, validation_hints = self._validate_fix(
-                        fix, fixed_code_dict, fix_point, fix_point.get('location', 'unknown')
+                        fix,
+                        fixed_code_dict,
+                        fix_point,
+                        fix_point.get('location', 'unknown'),
+                        debug_info=debug_info
                     )
                     validation_end_time = time.time()
                     validation_duration = validation_end_time - validation_start_time
@@ -618,15 +635,37 @@ class InitialChainBuilder:
                     else:
                         print(f"    [Stage] Validation - Fix is INCORRECT, receiving feedback for improvement")
                         print(f"    [Validation Feedback] {validation_hints[:200]}..." if len(validation_hints) > 200 else f"    [Validation Feedback] {validation_hints}")
-                        thinking_chain += f"\n\n[Validation Feedback]\n{validation_hints}"
+                        # Save validation feedback and generated fix to history
+                        all_validation_feedbacks.append({
+                            'iteration': iteration + 1,
+                            'feedback': validation_hints,
+                            'generated_fix': fix
+                        })
+                        all_generated_fixes.append({
+                            'iteration': iteration + 1,
+                            'fix': fix
+                        })
+                        thinking_chain += f"\n\n[Iteration {iteration + 1} - Validation Feedback]\n{validation_hints}"
                         # Save the last generated fix even if validation failed (for analysis)
                         final_fix_code = fix
                         print(f"    [Stage] Saving last generated fix code for analysis (validation failed)")
                         # Continue with reflection
                     print(f"    [Stage] Iteration {iteration + 1} - Reflecting based on validation feedback")
+                    # Build complete history of all validation feedbacks
+                    complete_validation_history = "\n\n".join([
+                        f"[Iteration {vf['iteration']} Validation Feedback]:\n{vf['feedback']}"
+                        for vf in all_validation_feedbacks
+                    ])
+                    # Build complete history of all generated fixes
+                    complete_fix_history = "\n\n".join([
+                        f"[Iteration {gf['iteration']} Generated Fix]:\n{gf['fix']}"
+                        for gf in all_generated_fixes
+                    ])
                     # Do NOT pass fixed_code in iterative reflection - validation feedback already contains the comparison
+                    # Pass complete history (all validation feedbacks + all generated fixes)
                     prompt = PromptTemplates.get_iterative_reflection_prompt(
-                        thinking_chain, buggy_code, None, validation_hints, None
+                        thinking_chain, buggy_code, None, complete_validation_history, context if grep_attempts > 0 else None,
+                        fix_history=complete_fix_history
                     )
                     iteration += 1
                     continue
@@ -935,8 +974,9 @@ class InitialChainBuilder:
         
         return True, None
     
-    def _validate_fix(self, generated_fix: str, fixed_code: Dict, 
-                     fix_point: Dict, bug_location: str) -> Tuple[bool, Optional[str]]:
+    def _validate_fix(self, generated_fix: str, fixed_code: Dict,
+                     fix_point: Dict, bug_location: str,
+                     debug_info: Optional[List[Dict]] = None) -> Tuple[bool, Optional[str]]:
         """
         Validate generated fix against ground truth
         
@@ -955,12 +995,32 @@ class InitialChainBuilder:
         prompt = PromptTemplates.get_fix_validation_prompt(
             generated_fix, fixed_code, fix_point, bug_location
         )
-        
+
+        if debug_info is not None:
+            debug_info.append({
+                "stage": "fix_validation",
+                "fix_point_id": fix_point.get("id"),
+                "fix_point_location": fix_point.get("location"),
+                "timestamp": time.time(),
+                "prompt": prompt,
+            })
+
         response = self.aliyun_model.generate(prompt)
         validation_api_end = time.time()
         validation_api_duration = validation_api_end - validation_api_start
         print(f"    [Stage] Validation - Model API call completed in {validation_api_duration:.2f} seconds")
         print(f"    [Stage] Validation - Model response received ({len(response)} characters)")
+
+        if debug_info is not None:
+            debug_info.append({
+                "stage": "fix_validation",
+                "fix_point_id": fix_point.get("id"),
+                "fix_point_location": fix_point.get("location"),
+                "timestamp": time.time(),
+                "api_duration_seconds": validation_api_duration,
+                "response": response,
+                "response_chars": len(response) if response else 0,
+            })
         
         # Parse validation result
         correct_match = re.search(r'<correct>(.*?)</correct>', response, re.DOTALL)
@@ -977,9 +1037,10 @@ class InitialChainBuilder:
         
         return is_correct, hints
     
-    def merge_thinking_chains(self, fix_points: List[Dict], 
+    def merge_thinking_chains(self, fix_points: List[Dict],
                              thinking_chains: Dict[str, str],
-                             final_fix_codes: Dict[str, Optional[str]] = None) -> str:
+                             final_fix_codes: Dict[str, Optional[str]] = None,
+                             debug_info: Optional[List[Dict]] = None) -> str:
         """
         Merge individual thinking chains into complete chain
         
@@ -1033,12 +1094,29 @@ class InitialChainBuilder:
         prompt = PromptTemplates.get_merge_thinking_chain_prompt(
             [fp['location'] for fp in fix_points], thinking_chains, final_fix_codes or {}
         )
+
+        if debug_info is not None:
+            debug_info.append({
+                "stage": "merge_thinking_chains",
+                "attempt": 1,
+                "timestamp": time.time(),
+                "prompt": prompt,
+            })
         
         response = self.aliyun_model.generate(prompt)
         api_end_time = time.time()
         api_duration = api_end_time - api_start_time
         print(f"[Stage] Model API call completed in {api_duration:.2f} seconds")
         print(f"[Stage] Model response received ({len(response)} characters)")
+        if debug_info is not None:
+            debug_info.append({
+                "stage": "merge_thinking_chains",
+                "attempt": 1,
+                "timestamp": time.time(),
+                "api_duration_seconds": api_duration,
+                "response": response,
+                "response_chars": len(response) if response else 0,
+            })
         merge_end_time = time.time()
         merge_duration = merge_end_time - merge_start_time
         print(f"[Stage] Total merge duration: {merge_duration:.2f} seconds (API: {api_duration:.2f}s, Other: {merge_duration - api_duration:.2f}s)")
