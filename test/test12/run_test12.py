@@ -1,21 +1,25 @@
 #!/usr/bin/env python3
 """
-Test10: Repair Order Analysis + All Fix Points Initial Generation + Validation + Merge (DEBUG)
+Test12: Repair Order Analysis + All Fix Points Initial Generation + Validation + Merge + Debug Split
 
 Stages:
-1) repair order analysis (sorted fix points)
-2) initial fix generation for ALL fix points
-3) validation (enabled, using fixed_code dict; model does not see ground truth directly)
+1) repair order analysis (sorted fix points, using restored test10 prompt)
+2) initial fix generation for ALL fix points (model decides whether to grep)
+3) validation (enabled, using fixed_code dict; generation model does not see ground truth)
 4) merge thinking chains (model-based merge unless SKIP_MERGE is enabled)
+5) split debug records into per-step txt files under test/test12/debug/
 
 Artifacts:
 - JSON output with all per-fix-point chains, final fixes, merge result, and debug records (prompts/responses)
+- merged thinking chain TXT
+- split debug txt files in debug/
 """
 import json
 import os
 import sys
 import pathlib
 import time
+import subprocess
 from datetime import datetime
 
 sys.path.insert(0, str(pathlib.Path(__file__).parent.parent.parent))
@@ -52,7 +56,7 @@ def main() -> int:
     with test_file.open("r", encoding="utf-8") as f:
         test_case = json.load(f)
 
-    case_id = "test10"
+    case_id = "test12"
     original_case_id = test_case.get("case_id", "test6")
     codebase_path = test_case.get("codebase_path", "datasets/codebases/open62541")
 
@@ -63,13 +67,14 @@ def main() -> int:
     os.environ.pop("SKIP_REPAIR_ORDER", None)
 
     print("=" * 60, flush=True)
-    print("Test10: Repair Order + All Fix Points Initial Generation + Validation + Merge (DEBUG)", flush=True)
+    print("Test12: Repair Order + All Fix Points Initial Generation + Validation + Merge (DEBUG + SPLIT)", flush=True)
     print("Configuration:", flush=True)
-    print("  ✓ Repair order analysis: ENABLED", flush=True)
+    print("  ✓ Repair order analysis: ENABLED (using restored test10 prompt)", flush=True)
     print("  ✓ All fix points initial generation: ENABLED", flush=True)
     print("  ✓ Validation: ENABLED", flush=True)
     print("  ✓ Merge thinking chains: ENABLED", flush=True)
     print("  ✓ DEBUG: Save prompts and raw responses", flush=True)
+    print("  ✓ DEBUG split: test/test12/debug/", flush=True)
     print("=" * 60, flush=True)
 
     detailed_bug_location = build_detailed_bug_location(test_case)
@@ -147,7 +152,7 @@ def main() -> int:
         merge_end = time.time()
 
         # Save artifacts
-        out_dir = pathlib.Path("test") / "test10" / "outputs" / "thinking_chains"
+        out_dir = pathlib.Path("test") / "test12" / "outputs" / "thinking_chains"
         out_dir.mkdir(parents=True, exist_ok=True)
 
         results = {
@@ -182,13 +187,31 @@ def main() -> int:
             },
         }
 
-        json_path = out_dir / "test10_with_debug.json"
+        json_path = out_dir / "test12_with_debug.json"
         with json_path.open("w", encoding="utf-8") as f:
             json.dump(results, f, indent=2, ensure_ascii=False)
 
-        txt_path = out_dir / "test10_merged_thinking_chain.txt"
+        txt_path = out_dir / "test12_merged_thinking_chain.txt"
         with txt_path.open("w", encoding="utf-8") as f:
             f.write(merged_chain or "")
+
+        # Stage 5: split debug into per-step txt files under test/test12/debug/
+        print("\nSplitting debug records into per-step files...", flush=True)
+        try:
+            subprocess.run(
+                [
+                    sys.executable,
+                    str(pathlib.Path(__file__).parent / "extract_debug.py"),
+                    "--input",
+                    str(json_path),
+                    "--output-dirname",
+                    "debug",
+                    "--clean",
+                ],
+                check=True,
+            )
+        except Exception as e:
+            print(f"⚠️  Debug split failed (continuing): {e}", flush=True)
 
         print("\n" + "=" * 60, flush=True)
         print("Summary:", flush=True)
@@ -200,6 +223,7 @@ def main() -> int:
         print(f"Debug records: {len(debug_info)}", flush=True)
         print(f"Saved JSON: {json_path}", flush=True)
         print(f"Saved merged chain TXT: {txt_path}", flush=True)
+        print(f"Saved split debug dir: test/test12/debug", flush=True)
         return 0
 
     except Exception as e:
@@ -211,8 +235,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-
-
-
-
-

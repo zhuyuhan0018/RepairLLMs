@@ -614,7 +614,9 @@ Format your response as:
                                        buggy_code: Optional[str] = None,
                                        fixed_code: Optional[str] = None,
                                        validation_hints: Optional[str] = None,
-                                       grep_results: Optional[str] = None) -> str:
+                                       grep_results: Optional[str] = None,
+                                       fix_history: Optional[str] = None,
+                                       validation_feedback_history: Optional[str] = None) -> str:
         """
         生成迭代反思提示词
         用于在已有思考链基础上进行迭代改进和反思
@@ -643,6 +645,26 @@ Format your response as:
 {validation_hints}
 
 **Note**: This feedback compares your generated fix with the ground truth. Use it to guide your reflection.
+"""
+        
+        # 构建历史验证反馈部分（如果提供了完整历史）
+        validation_history_section = ""
+        if validation_feedback_history:
+            validation_history_section = f"""
+## Previous Validation Feedback History:
+{validation_feedback_history}
+
+**Note**: This is the complete history of all validation feedback from previous iterations. Review all feedback to understand the progression of issues.
+"""
+        
+        # 构建历史修复代码部分（如果提供了完整历史）
+        fix_history_section = ""
+        if fix_history:
+            fix_history_section = f"""
+## Previous Generated Fix History:
+{fix_history}
+
+**Note**: This is the complete history of all fixes you generated in previous iterations. Review them to avoid repeating the same mistakes.
 """
         
         # Build sections (concise)
@@ -721,6 +743,8 @@ You are iteratively improving your analysis and fix based on:
 
 ## Your Previous Thinking:
 {previous_thinking}
+{validation_history_section}
+{fix_history_section}
 {hints_section}
 {grep_section}
 

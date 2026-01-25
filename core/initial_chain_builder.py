@@ -651,21 +651,24 @@ class InitialChainBuilder:
                         print(f"    [Stage] Saving last generated fix code for analysis (validation failed)")
                         # Continue with reflection
                     print(f"    [Stage] Iteration {iteration + 1} - Reflecting based on validation feedback")
-                    # Build complete history of all validation feedbacks
+                    # Current iteration feedback (most recent)
+                    current_validation_feedback = validation_hints if validation_hints else None
+                    # Build complete history of all validation feedbacks (including current)
                     complete_validation_history = "\n\n".join([
                         f"[Iteration {vf['iteration']} Validation Feedback]:\n{vf['feedback']}"
                         for vf in all_validation_feedbacks
-                    ])
+                    ]) if all_validation_feedbacks else None
                     # Build complete history of all generated fixes
                     complete_fix_history = "\n\n".join([
                         f"[Iteration {gf['iteration']} Generated Fix]:\n{gf['fix']}"
                         for gf in all_generated_fixes
-                    ])
+                    ]) if all_generated_fixes else None
                     # Do NOT pass fixed_code in iterative reflection - validation feedback already contains the comparison
-                    # Pass complete history (all validation feedbacks + all generated fixes)
+                    # Pass current feedback as validation_hints, and complete history as validation_feedback_history
                     prompt = PromptTemplates.get_iterative_reflection_prompt(
-                        thinking_chain, buggy_code, None, complete_validation_history, context if grep_attempts > 0 else None,
-                        fix_history=complete_fix_history
+                        thinking_chain, buggy_code, None, current_validation_feedback, context if grep_attempts > 0 else None,
+                        fix_history=complete_fix_history,
+                        validation_feedback_history=complete_validation_history
                     )
                     iteration += 1
                     continue

@@ -3,8 +3,8 @@
 Extract debug.records from a test output JSON and split them into per-step txt files.
 
 Default:
-- input: test/test11/outputs/thinking_chains/test11_with_debug.json
-- output: test/test11/debug/
+- input: test/test12/outputs/thinking_chains/test12_with_debug.json
+- output: test/test12/debug/
 """
 import argparse
 import json
@@ -168,12 +168,12 @@ def main():
     parser.add_argument(
         "--input",
         default=None,
-        help="Path to the JSON file containing debug.records (default: test11 outputs file).",
+        help="Path to the JSON file containing debug.records (default: test12 outputs file).",
     )
     parser.add_argument(
         "--output-dirname",
         default="debug",
-        help="Output directory name under test/test11/ (default: debug).",
+        help="Output directory name under test/test12/ (default: debug).",
     )
     parser.add_argument(
         "--clean",
@@ -186,7 +186,7 @@ def main():
     json_file = (
         pathlib.Path(args.input)
         if args.input
-        else (script_dir / "outputs" / "thinking_chains" / "test11_with_debug.json")
+        else (script_dir / "outputs" / "thinking_chains" / "test12_with_debug.json")
     )
     debug_dir = script_dir / args.output_dirname
 
@@ -225,7 +225,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-
-
-
